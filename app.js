@@ -1193,7 +1193,8 @@
   }
   const shareable = () => { const o = { ...S }; ['tab', 'lesson', 'syncKey', 'seedApplied'].forEach((k) => delete o[k]); return o; };
   async function syncNow(redraw) {
-    if (!SYNC || !S.syncKey || syncBusy) return;
+    if (!SYNC || !S.syncKey) return;
+    if (syncBusy) { clearTimeout(pushT); pushT = setTimeout(() => syncNow(redraw), 1200); return; } // 맞추는 중이면 끝나고 한 번 더
     syncBusy = true; syncMark('busy', '☁︎ 맞추는 중…');
     try {
       const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
