@@ -1396,6 +1396,11 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .sync-state[data-state="err"] { color: var(--err); }
 
 .boot-msg { position: fixed; inset: 0; display: grid; place-items: center; font-size: 15px; font-weight: 700; color: var(--sub); background: var(--bg); z-index: 5; }
+.teacher-bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 65; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 18px; font-size: 13px; color: #fff; background: #2f3a5f; }
+.teacher-bar b { font-size: 14px; }
+.teacher-bar span { opacity: .85; }
+.teacher-bar label { margin-left: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.teacher-bar select { width: auto; padding: 4px 28px 4px 10px; font-size: 13px; color: var(--ink); }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

@@ -1003,9 +1003,9 @@
     const t = todayKey(), due = new Date(HW.due + 'T00:00:00'), dd = Math.round((due - new Date(t + 'T00:00:00')) / 864e5);
     let justDone = null;
     HW.days.forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
-    if (justDone) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
+    if (justDone && !TEACHER) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
     let html = `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
-      <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · 하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요</p></div><span class="banner-ghost"></span></section>`;
+      <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
     html += `<div class="hw-days">${HW.days.map((d) => {
       const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t;
       return `<section class="card hw-day ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">
@@ -1015,7 +1015,7 @@
         <div class="hw-tasks">${d.tasks.map((tk, i) => { const ok = hwTaskOk(tk), info = tk.checks.map((c) => hwCheck(c).txt).join(' · ');
           return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span>
             <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
-        ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b><button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button></div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
+        ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
       </section>`;
     }).join('')}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
@@ -1152,6 +1152,17 @@
     mergeInto(sd); S.seedApplied = sig; save(true);
   })();
 
+  // 선생님 표시 — 맨 위 띠 + 사이드바에 학생 고르기
+  function teacherBar() {
+    if (document.getElementById('teacher-bar')) return;
+    const d = document.createElement('div'); d.id = 'teacher-bar'; d.className = 'teacher-bar';
+    const opts = TEACHER.students.map((x) => `<option value="${esc(x.student)}" ${x.student === S.who ? 'selected' : ''}>${esc(x.student)}</option>`).join('');
+    d.innerHTML = `<b>👩‍🏫 선생님 화면</b><span>학생 기록 보기 전용 · 여기서 누른 건 학생 기록에 저장되지 않아요</span><label>학생 <select id="t-stu">${opts}</select></label>`;
+    document.body.prepend(d);
+    d.querySelector('#t-stu').onchange = (e) => { location.search = `?s=${encodeURIComponent(e.target.value)}&k=${encodeURIComponent(S.syncKey)}`; };
+    $('#who-name').textContent = `${S.who} (선생님이 보는 중)`; $('#who-edit').hidden = true;
+  }
+
   // ───────── 서버 동기화 ─────────
   // 기록을 서버(Supabase)에 올리고 받아서, 맥·휴대폰·윤건이 폰 어디서 열어도 같은 기록이 보이게 합니다.
   // 학생마다 비밀 코드(k)가 있어 그 코드를 아는 링크로만 읽고 쓸 수 있습니다.
@@ -1200,17 +1211,34 @@
       const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
       const changed = mergeInto(remote);
       localStorage.setItem(KEY, JSON.stringify(S));
-      await rpc('naesin_put', { p_student: S.who, p_code: S.syncKey, p_data: shareable() });
-      syncMark('ok', '☁︎ 저장됨');
+      if (!TEACHER) { await rpc('naesin_put', { p_student: S.who, p_code: S.syncKey, p_data: shareable() }); syncMark('ok', '☁︎ 저장됨'); }
+      else { const t = new Date(); syncMark('ok', `☁︎ ${S.who} 기록 받음 ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`); }
       if (changed && redraw && !document.activeElement.matches('input, textarea')) { const y = scrollY; render(); scrollTo(0, y); }
     } catch (e) { syncMark('err', '☁︎ 연결 안 됨 (이 기기에는 저장됨)'); }
     syncBusy = false;
   }
-  function schedulePush() { if (!SYNC || !S.syncKey) return; clearTimeout(pushT); syncMark('busy', '☁︎ 저장 중…'); pushT = setTimeout(() => syncNow(false), 1500); }
+  let TEACHER = null; // 선생님 링크로 열면 { students: [...] } — 보기 전용
+  function schedulePush() { if (!SYNC || !S.syncKey || TEACHER) return; clearTimeout(pushT); syncMark('busy', '☁︎ 저장 중…'); pushT = setTimeout(() => syncNow(false), 1500); }
   setInterval(() => syncNow(true), 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(true); });
 
   S.tab = HW && dayKey(Date.now()) <= HW.due ? 'hw' : 'home'; // 숙제가 있으면 숙제부터, 없으면 단원 홈
   render();
-  takeHandoff().then(() => syncNow(true));
+  (async () => {
+    if (SYNC && S.syncKey) {
+      try {
+        const me = await rpc('naesin_whoami', { p_code: S.syncKey });
+        if (me && me.role !== 'student') {
+          TEACHER = { students: (await rpc('naesin_students', { p_code: S.syncKey })) || [] };
+          if (!params.get('s') && TEACHER.students[0]) S.who = TEACHER.students[0].student;
+          const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
+          ['mem', 'known', 'qa', 'wrong', 'log', 'ws', 'wsAt', 'wsv', 'notes', 'notesAt', 'dm', 'rev', 'hwDone'].forEach((k) => delete S[k]);
+          S.qa = {}; S.wrong = {}; S.mem = {}; S.known = {}; mergeInto(remote || {});
+          document.documentElement.classList.add('teacher');
+          teacherBar(); render();
+        }
+      } catch (e) {}
+    }
+    await takeHandoff(); syncNow(true);
+  })();
 })();
