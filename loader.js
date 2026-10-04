@@ -25,5 +25,5 @@
   }
   data.sync = C;
   window.NAESIN = data;
-  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || ''); document.body.appendChild(s);
+  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || ''); s.onload = () => { const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
 })();
