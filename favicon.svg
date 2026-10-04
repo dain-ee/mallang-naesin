@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 말랑 단어 마크. 말랑 1001 과 같은 얼굴이고 색만 파랑 계열(말랑 내신)입니다.
+       바탕은 붉은 기 없는 중성 검정으로 둡니다 — 바탕까지 붉으면 코랄
+       그라데이션이 섞여 갈색 한 덩이로 보입니다. 색은 코랄에서 살구·장미
+       쪽으로 퍼뜨려 온도차를 줍니다. -->
+  <defs>
+    <radialGradient id="g1" cx="18%" cy="12%" r="74%"><stop offset="0" stop-color="#4f7cff" stop-opacity=".72"/><stop offset="58%" stop-color="#4f7cff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g2" cx="90%" cy="22%" r="72%"><stop offset="0" stop-color="#8a63ff" stop-opacity=".52"/><stop offset="60%" stop-color="#8a63ff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g3" cx="82%" cy="96%" r="80%"><stop offset="0" stop-color="#35c3e6" stop-opacity=".40"/><stop offset="62%" stop-color="#35c3e6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g4" cx="12%" cy="92%" r="70%"><stop offset="0" stop-color="#d8e7ff" stop-opacity=".16"/><stop offset="60%" stop-color="#d8e7ff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="26%" stop-color="#fff" stop-opacity=".14"/><stop offset="100%" stop-color="#fff" stop-opacity=".05"/></linearGradient>
+    <linearGradient id="toph" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="gsh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="14" stdDeviation="22" flood-color="#000" flood-opacity=".4"/></filter>
+  </defs>
+  <rect x="72" y="72" width="880" height="880" rx="212" fill="#0c0a0d"/>
+  <rect x="72" y="72" width="880" height="880" rx="212" fill="url(#g1)"/>
+  <rect x="72" y="72" width="880" height="880" rx="212" fill="url(#g2)"/>
+  <rect x="72" y="72" width="880" height="880" rx="212" fill="url(#g3)"/>
+  <rect x="72" y="72" width="880" height="880" rx="212" fill="url(#g4)"/>
+  <rect x="96" y="88" width="832" height="360" rx="190" fill="url(#toph)"/>
+  <rect x="75" y="75" width="874" height="874" rx="209" fill="none" stroke="url(#rim)" stroke-width="4.5"/>
+  <g transform="translate(512 512) rotate(38) scale(0.72)" filter="url(#gsh)">
+    <path fill="#ffd6c6" d="M -288 -50 C -288 -300, -152 -404, 0 -404 C 152 -404, 288 -300, 288 -50 L 288 205 C 288 338, 96 338, 96 212 C 96 348, -96 348, -96 212 C -96 352, -288 358, -288 205 Z"/>
+    <g transform="translate(26 -212) rotate(-38)"><ellipse cx="-76" cy="0" rx="47" ry="60" fill="#0b0a0c"/><ellipse cx="76" cy="0" rx="47" ry="60" fill="#0b0a0c"/></g>
+  </g>
+</svg>
