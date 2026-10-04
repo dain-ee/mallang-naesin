@@ -6,6 +6,7 @@
   'use strict';
 
   const DATA = window.NAESIN || { lessons: [] };
+  { const bm = document.getElementById('boot-msg'); if (bm) bm.remove(); } // 웹 버전의 '불러오는 중' 안내
   const LESSONS = DATA.lessons;
   const EXAMS = DATA.exams || [];
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
