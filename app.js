@@ -266,7 +266,7 @@
     const name = b.closest('.seg').dataset.seg; UI[name] = b.dataset.v;
     if (name === 'words') { UI.test = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'quizCat' || name === 'quizScope' || name === 'examSet') UI.quiz = null;
-    if (name === 'hquizCat' || name === 'hquizScope') UI.hquiz = null;
+    if (name === 'hquizCat' || name === 'hquizScope' || name === 'hexamSet') UI.hquiz = null;
     if (name === 'ht') { UI.htest = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'rpart') UI.rpart = +UI.rpart;
     render();
@@ -1168,17 +1168,19 @@
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
     const sc = UI.hquizScope || 'one';
     const one = (u) => u.questions.map((q, i) => qByKey(`h:${u.no}:${i}`));
-    const src = sc === 'exam' ? HEXAMS.flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
+    const src = sc === 'exam' ? HEXAMS.filter((e) => (UI.hexamSet || 'all') === 'all' || e.id === UI.hexamSet).flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
     const cat = UI.hquizCat || '전체';
     return src.filter(Boolean).filter(({ q }) => cat === '전체' || (cat === '서술형' ? q.type === 'short' || q.type === 'essay' : q.cat === cat && q.type === 'mc'));
   }
   function hquiz(U) {
-    UI.hquizScope = UI.hquizScope || 'one';
-    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = { pool: UI.hquizScope === 'one' ? pool : shuffle(pool), i: 0, picks: {} }; }
+    UI.hquizScope = UI.hquizScope || (HEXAMS.length ? 'exam' : 'one');
+    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = { pool: UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool) : pool, i: 0, picks: {} }; }
     const Q = UI.hquiz, st = hQuizStats(U);
-    const scopes = [['one', `이 단원 (${U.questions.length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`], ...(HEXAMS.length ? [['exam', '기출 시험지']] : [])];
-    let html = head(`실전 문제 · ${UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, `이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
-      `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>`;
+    const scopes = [...(HEXAMS.length ? [['exam', `기출 시험지 (${HEXAMS.reduce((n, e) => n + e.questions.length, 0)})`]] : []), ['one', `이 단원 (${U.questions.length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
+    const ex = HEXAMS.find((e) => e.id === UI.hexamSet);
+    let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `출처: ${esc(ex.source || '')}` : '기출비 카페에서 받은 시험지를 섞어서') : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
+      `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>` +
+      (UI.hquizScope === 'exam' && HEXAMS.length > 1 ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], ...HEXAMS.map((e) => [e.id, `${e.title} (${e.questions.length})`])], UI.hexamSet || 'all')}</div>` : '');
     if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
