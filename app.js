@@ -9,10 +9,14 @@
   { const bm = document.getElementById('boot-msg'); if (bm) bm.remove(); } // 웹 버전의 '불러오는 중' 안내
   const LESSONS = DATA.lessons;
   const EXAMS = DATA.exams || [];
+  const HIST = DATA.history || null; // 역사 (단원·용어·흐름·문제)
+  const HUNITS = HIST ? HIST.units : [], HEXAMS = HIST ? HIST.exams || [] : [];
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
   // 문제 키 → 문제. 'ex:시험지:번호' 는 기출 시험지, '과:번호' 는 직접 만든 문제.
   function qByKey(k) {
     const p = k.split(':');
+    if (p[0] === 'h') { const U = HUNITS.find((u) => u.no === +p[1]), q = U && U.questions[+p[2]]; return q ? { q, key: k, no: U.no, lab: U.code, hist: true } : null; }
+    if (p[0] === 'hx') { const e = HEXAMS.find((x) => x.id === p[1]), q = e && e.questions[+p[2]]; const U = q && HUNITS.find((u) => u.no === q.unit); return q ? { q, key: k, no: q.unit, lab: U ? U.code : '', src: e.title, hist: true } : null; }
     if (p[0] === 'ex') { const e = EXAMS.find((x) => x.id === p[1]) || EXAMS[+p[1]], q = e && e.questions[+p[2]]; return q ? { q, key: k, no: q.lesson, src: e.title } : null; }
     const L = LESSONS.find((l) => l.no === +p[0]); return L && L.questions[+p[1]] ? { q: L.questions[+p[1]], key: k, no: L.no } : null;
   }
@@ -20,7 +24,7 @@
 
   // ───────── 기록 ─────────
   const S = Object.assign(
-    { who: '윤건', lesson: LESSONS[0] ? LESSONS[0].no : 5, tab: 'home', mem: {}, known: {}, qa: {}, wrong: {} },
+    { who: '윤건', subj: 'en', hunit: HUNITS[0] ? HUNITS[0].no : 2, lesson: LESSONS[0] ? LESSONS[0].no : 5, tab: 'home', mem: {}, known: {}, qa: {}, wrong: {} },
     read()
   );
   function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
@@ -49,6 +53,8 @@
   // 지문에는 밑줄·굵게만 허용합니다.
   const rich = (s) => esc(s).replace(/&lt;(\/?)(u|b)&gt;/g, '<$1$2>');
   const lesson = () => LESSONS.find((l) => l.no === S.lesson) || LESSONS[0];
+  const isHist = () => !!HIST && S.subj === 'hist';
+  const hunit = () => HUNITS.find((u) => u.no === S.hunit) || HUNITS[0];
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
   function toast(msg) {
@@ -60,7 +66,7 @@
   // 푼 것은 S.log 에 하나씩 쌓습니다(날짜·과·갈래·맞힘). 기록 탭이 이걸 그대로 보여 줍니다.
   function logEv(kind, ok, total, label) {
     S.log = S.log || [];
-    S.log.push({ at: Date.now(), l: S.lesson, k: kind, ok, n: total, t: String(label || '').slice(0, 80) });
+    S.log.push(isHist() ? { at: Date.now(), sj: 'hist', l: S.hunit, k: kind, ok, n: total, t: String(label || '').slice(0, 80) } : { at: Date.now(), l: S.lesson, k: kind, ok, n: total, t: String(label || '').slice(0, 80) });
     if (S.log.length > 5000) S.log = S.log.slice(-5000);
     save();
   }
@@ -109,7 +115,7 @@
   function accepts(input, ans) {
     const v = norm(input);
     if (!v) return false;
-    return variants(ans).flatMap((x) => x.split('/')).some((a) => { const n = norm(a); return n === v || (REL[n] || []).includes(v); });
+    return variants(ans).flatMap((x) => x.split('/')).some((a) => { const n = norm(a); return n === v || (REL[n] || []).includes(v) || (/[가-힣]/.test(n) && n.replace(/ /g, '') === v.replace(/ /g, '')); });
   }
   // 문장 통째 비교 — 관계대명사 that/which/who/whom 차이는 같은 답으로 봅니다.
   const relNorm = (x) => norm(x).replace(/\b(which|who|whom)\b/g, 'that');
@@ -131,7 +137,7 @@
     }
     return out;
   }
-  const sameSentence = (a, b) => variants(a).some((v) => norm(v) === norm(b) || relNorm(v) === relNorm(b));
+  const sameSentence = (a, b) => variants(a).some((v) => norm(v) === norm(b) || relNorm(v) === relNorm(b) || (/[가-힣]/.test(v) && norm(v).replace(/ /g, '') === norm(b).replace(/ /g, '')));
   const STOP = new Set('the a an and or but to of in on at for with by from is are was were be been am it its this that these those he she they we you i me my your his her their our them us there here what which who how why when where do does did can will would could should may might not no so as if than then just very also have has had about into over up out some any all one'.split(' '));
 
   // ───────── 이 단원의 암기 덩어리 ─────────
@@ -172,12 +178,26 @@
   }
 
   // ───────── 사이드바 ─────────
+  const NAV = {
+    en: [['home', '⌂', '단원 홈'], ['words', '1', '단어'], ['comm', '2', '의사소통'], ['grammar', '3', '문법'], ['reading', '4', '본문'], ['quiz', '5', '실전 문제']],
+    hist: [['hhome', '⌂', '단원 홈'], ['hconcept', '1', '개념 정리'], ['hterms', '2', '핵심 용어'], ['hflow', '3', '흐름 잇기'], ['hquiz', '4', '실전 문제']],
+  };
   function syncSide() {
-    document.documentElement.dataset.lesson = S.lesson;
-    const L = lesson();
-    $('#lesson-sub').textContent = L ? `${L.no}과 · ${L.title}` : '자료 없음';
+    const hs = isHist();
+    document.documentElement.dataset.lesson = hs ? '' : S.lesson;
+    document.documentElement.dataset.subj = hs ? 'hist' : 'en';
+    const navKey = (hs ? 'h' : 'e') + (HW ? 1 : 0);
+    if ($('#nav').dataset.k !== navKey) {
+      $('#nav').dataset.k = navKey;
+      $('#nav').innerHTML = `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>` +
+        NAV[hs ? 'hist' : 'en'].map(([t, i, n]) => `<button class="nav-item" data-tab="${t}" type="button"><i class="ni">${i}</i>${n}</button>`).join('') +
+        `<button class="nav-item" data-tab="wrong" type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button><button class="nav-item" data-tab="log" type="button"><i class="ni">✓</i>기록</button>`;
+    }
+    if (HIST) { $('#subj').hidden = false; document.querySelectorAll('#subj [data-subj]').forEach((b) => b.classList.toggle('on', b.dataset.subj === (hs ? 'hist' : 'en'))); }
+    const L = lesson(), U = hunit();
+    $('#lesson-sub').textContent = hs ? (U ? `역사 ${U.code} · ${U.title}` : '자료 없음') : L ? `${L.no}과 · ${L.title}` : '자료 없음';
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === S.tab));
-    const w = Object.keys(S.wrong).length; const t = $('#wrong-tally'); t.hidden = !w; t.textContent = w;
+    const w = wrongKeys().length; const t = $('#wrong-tally'); t.hidden = !w; t.textContent = w;
     $('#who-name').textContent = S.who;
     if (HW) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
   }
@@ -185,9 +205,10 @@
   const brand = $('#brand'), menu = $('#lesson-menu');
   brand.addEventListener('click', () => {
     const open = menu.hidden; menu.hidden = !open; brand.setAttribute('aria-expanded', open);
-    if (open) menu.innerHTML = LESSONS.map((l) => `<button class="menu-item ${l.no === S.lesson ? 'on' : ''}" data-l="${l.no}" type="button"><span class="dot" style="--dot:var(--accent)"></span><span class="t">${l.no}과 ${esc(l.title)}</span></button>`).join('');
+    if (open && isHist()) menu.innerHTML = HUNITS.map((u) => `<button class="menu-item ${u.no === S.hunit ? 'on' : ''}" data-u="${u.no}" type="button"><span class="dot" style="--dot:var(--accent)"></span><span class="t">${esc(u.code)} ${esc(u.title)}</span></button>`).join('');
+    else if (open) menu.innerHTML = LESSONS.map((l) => `<button class="menu-item ${l.no === S.lesson ? 'on' : ''}" data-l="${l.no}" type="button"><span class="dot" style="--dot:var(--accent)"></span><span class="t">${l.no}과 ${esc(l.title)}</span></button>`).join('');
   });
-  menu.addEventListener('click', (e) => { const b = e.target.closest('[data-l]'); if (b) { menu.hidden = true; brand.setAttribute('aria-expanded', false); setLesson(+b.dataset.l); } });
+  menu.addEventListener('click', (e) => { const u = e.target.closest('[data-u]'); if (u) { menu.hidden = true; brand.setAttribute('aria-expanded', false); setUnit(+u.dataset.u); return; } const b = e.target.closest('[data-l]'); if (b) { menu.hidden = true; brand.setAttribute('aria-expanded', false); setLesson(+b.dataset.l); } });
   document.addEventListener('click', (e) => { if (!menu.hidden && !e.target.closest('.switch')) { menu.hidden = true; brand.setAttribute('aria-expanded', false); } });
   $('#who-edit').addEventListener('click', () => {
     const span = $('#who-name'); const inp = document.createElement('input');
@@ -197,14 +218,22 @@
     inp.addEventListener('keydown', (e) => e.key === 'Enter' && done()); inp.addEventListener('blur', done);
   });
 
+  $('#subj').addEventListener('click', (e) => { const b = e.target.closest('[data-subj]'); if (b) setSubj(b.dataset.subj); });
+  function setSubj(sj) {
+    if (sj === S.subj) return;
+    S.subj = sj; UI.test = null; UI.quiz = null; UI.htest = null; UI.hquiz = null; UI.quizOnly = null;
+    if (!['hw', 'wrong', 'log'].includes(S.tab)) S.tab = sj === 'hist' ? 'hhome' : 'home';
+    save(true); render(); window.scrollTo(0, 0);
+  }
+  function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.htest = null; UI.hquiz = null; save(true); render(); }
   function setLesson(no) { if (no !== S.lesson) loading(no); S.lesson = no; UI.rpart = 0; UI.card = 0; UI.cardFlip = false; UI.test = null; UI.quiz = null; save(); render(); }
-  function go(tab) { if (tab !== 'quiz') UI.quizOnly = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
+  function go(tab) { if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
 
   // 단원을 바꾸면 유령이 잠깐 날아와 '5과 불러오는 중' — 바뀐 걸 확실히 느끼게.
-  function loading(no) {
-    const L = LESSONS.find((l) => l.no === no);
+  function loading(no, hs) {
+    const L = hs ? HUNITS.find((u) => u.no === no) : LESSONS.find((l) => l.no === no);
     const o = document.createElement('div'); o.className = 'loader';
-    o.innerHTML = `<div class="loader-card"><span class="loader-ghost"></span><b>Lesson ${no}</b><span>${esc(L ? L.title : '')}</span><i class="loader-bar"><i></i></i></div>`;
+    o.innerHTML = `<div class="loader-card"><span class="loader-ghost"></span><b>${hs ? esc(L ? L.code : '') : `Lesson ${no}`}</b><span>${esc(L ? L.title : '')}</span><i class="loader-bar"><i></i></i></div>`;
     document.body.appendChild(o);
     setTimeout(() => o.classList.add('out'), 650); setTimeout(() => o.remove(), 950);
   }
@@ -212,10 +241,16 @@
   let lastView = '';
   function render() {
     syncSide();
-    const L = lesson();
-    if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
-    ({ hw: hwView, home, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
-    const view = `${S.lesson}:${S.tab}`;
+    if (isHist()) {
+      if (!['hw', 'wrong', 'log'].includes(S.tab) && !S.tab.startsWith('h')) S.tab = 'hhome';
+      ({ hw: hwView, hhome, hconcept, hterms, hflow, hquiz, wrong, log: logView })[S.tab]?.(hunit());
+    } else {
+      if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
+      const L = lesson();
+      if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
+      ({ hw: hwView, home, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
+    }
+    const view = `${S.subj}:${isHist() ? S.hunit : S.lesson}:${S.tab}`;
     if (view !== lastView) { lastView = view; main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter'); }
     if (pendingFx) { const f = pendingFx; pendingFx = null; const el = f.sel && main.querySelector(f.sel); react(f.ok, el); }
   }
@@ -231,6 +266,8 @@
     const name = b.closest('.seg').dataset.seg; UI[name] = b.dataset.v;
     if (name === 'words') { UI.test = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'quizCat' || name === 'quizScope' || name === 'examSet') UI.quiz = null;
+    if (name === 'hquizCat' || name === 'hquizScope') UI.hquiz = null;
+    if (name === 'ht') { UI.htest = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'rpart') UI.rpart = +UI.rpart;
     render();
   });
@@ -726,7 +763,7 @@
   const NUMS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩', '⑪', '⑫'];
   function blanks(q, a) {
     let i = 0;
-    return esc(q).replace(/_{3,}/g, () => { const ans = (a && a[i]) ?? ''; i++; return `<input class="wb" data-ans="${esc(ans)}" style="width:${Math.max(4, ans.length) + 2}ch" autocomplete="off" spellcheck="false">`; });
+    return esc(q).replace(/_{3,}/g, () => { const ans = (a && a[i]) ?? ''; i++; const w = [...ans.split('/')[0]].reduce((n, c) => n + (/[가-힣]/.test(c) ? 1.9 : 1), 0); return `<input class="wb" data-ans="${esc(ans)}" style="width:${Math.max(4, w) + 2}ch" autocomplete="off" spellcheck="false">`; });
   }
   const koLine = (ko) => (ko ? `<div class="wko">→ ${esc(ko)}</div>` : '');
   const starLine = (st) => (st ? `<div class="wstar">${esc(st)}</div>` : '');
@@ -919,11 +956,15 @@
   }
   function bindQuizTop() { const r = $('#q-reset'); if (r) r.onclick = () => { UI.quiz = null; render(); }; const a = $('#q-all'); if (a) a.onclick = () => { UI.quizOnly = null; UI.quiz = null; render(); }; }
 
-  function questionCard({ q, no, src }, r, num) {
-    const kind = q.type === 'short' ? '서술형' : q.cat;
-    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${UI.quizScope !== 'one' || S.tab === 'wrong' ? `<span class="badge">${no}과</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? '기출 시험지' : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
+  function questionCard({ q, no, src, lab, hist }, r, num) {
+    const kind = q.type === 'short' ? (hist ? '단답형' : '서술형') : q.type === 'essay' ? '서술형' : q.cat;
+    const showNo = hist ? UI.hquizScope !== 'one' || S.tab === 'wrong' : UI.quizScope !== 'one' || S.tab === 'wrong';
+    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? '기출 시험지' : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
       <p class="q-text">${rich(q.q)}</p>${q.passage ? `<div class="passage">${rich(q.passage)}</div>` : ''}`;
-    if (q.type === 'short') {
+    if (q.type === 'essay') {
+      body += `<div class="short essay"><textarea id="sh-in" rows="3" spellcheck="false" placeholder="문장으로 써 보세요" ${r ? 'disabled' : ''}>${esc(r ? r.typed : '')}</textarea><div class="actions" style="justify-content:flex-start"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div></div>`;
+      if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? '핵심어가 다 들어갔어요!' : `빠진 핵심어: ${esc(missingKeys(q, r.typed).join(', '))}`}<span class="tip">모범 답안: ${esc(q.answer[0])}</span></div>`;
+    } else if (q.type === 'short') {
       body += `<div class="short spell-row"><input id="sh-in" autocomplete="off" spellcheck="false" placeholder="답을 쓰고 Enter" ${r ? 'disabled' : ''} value="${esc(r ? r.typed : '')}"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div>`;
       if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? '정답!' : '아쉬워요'}<span class="tip">모범 답안: ${q.answer.map(esc).join('  /  ')}</span></div>`;
     } else {
@@ -935,11 +976,16 @@
     if (r && q.exp) body += `<div class="exp"><b>해설</b>  ${rich(q.exp)}</div>`;
     return `<div class="card q-card">${body}</div>`;
   }
+  // 서술형(essay)은 핵심어 묶음(keys: [[같은 뜻 여럿], …])이 모두 들어가면 정답
+  const squash = (x) => norm(x).replace(/ /g, '');
+  const missingKeys = (q, v) => (q.keys || []).filter((g) => !g.some((k) => squash(v).includes(squash(k)))).map((g) => g[0]);
+  const shortOk = (q, v) => (q.type === 'essay' ? !!v.trim() && !missingKeys(q, v).length : q.answer.some((a) => sameSentence(a, v)));
   function bindQuestion(item, done) {
     const { q, key } = item;
     const record = (r) => {
       S.qa[key] = { ok: r.ok, at: Date.now() };
-      logEv(key.startsWith('ex:') ? '기출 시험지' : '실전 문제', r.ok ? 1 : 0, 1, key.startsWith('ex:') ? `${(qByKey(key) || {}).src || '기출'} ${+key.split(':')[2] + 1}번` : `${key.split(':')[0]}과 ${+key.split(':')[1] + 1}번`);
+      const it = qByKey(key) || {};
+      logEv(/^h?x:|^ex:/.test(key) ? '기출 시험지' : '실전 문제', r.ok ? 1 : 0, 1, it.src ? `${it.src} ${+key.split(':')[2] + 1}번` : it.hist ? `${it.lab} ${+key.split(':')[2] + 1}번` : `${key.split(':')[0]}과 ${+key.split(':')[1] + 1}번`);
       fxAfter(r.ok, r.ok ? '.q-card .choice.right, .q-card .verdict' : '.q-card .choice.wrong, .q-card .verdict');
       if (!r.ok) S.wrong[key] = 0;
       else if (key in S.wrong) { S.wrong[key]++; if (S.wrong[key] >= 2) delete S.wrong[key]; }
@@ -948,11 +994,207 @@
     main.querySelectorAll('.q-card .choice[data-k]').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; record({ pick: k, ok: k === q.answer }); }));
     const inp = $('#sh-in');
     if (inp && !inp.disabled) {
-      const go = () => { const v = inp.value; if (!v.trim()) return; record({ typed: v, ok: q.answer.some((a) => sameSentence(a, v)) }); };
-      inp.onkeydown = (e) => e.key === 'Enter' && go(); $('#sh-go').onclick = go;
+      const go = () => { const v = inp.value; if (!v.trim()) return; record({ typed: v, ok: shortOk(q, v) }); };
+      inp.onkeydown = (e) => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), go()); $('#sh-go').onclick = go;
       $('#sh-give').onclick = () => record({ typed: '', ok: false });
     }
   }
+
+
+  // ═════════ 역사 ═════════
+  // content/history/H*.json — 단원마다 개념(sections) · 핵심 용어(terms) · 흐름(flows) · 문제(questions).
+  // 개념 문장의 {용어} 는 읽기에서는 굵게, 빈칸 채우기에서는 칸이 됩니다. {아바스 왕조|아바스} 처럼 | 뒤는 같이 받아 주는 답.
+  const htid = (u, x) => `h${u.no}:t:${x.t}`;
+  const keyText = (s) => esc(s).replace(/\{([^}]+)\}/g, (_, x) => `<b class="hk">${x.split('|')[0]}</b>`);
+  function hConceptStats(u) {
+    let n = 0, ok = 0;
+    u.sections.forEach((sec, si) => { sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[`h${u.no}:c:${si}`]; if (r) ok += r.ok; });
+    return { n, ok };
+  }
+  function hQuizStats(u) {
+    let done = 0, ok = 0;
+    u.questions.forEach((_, i) => { const r = S.qa[`h:${u.no}:${i}`]; if (r) { done++; if (r.ok) ok++; } });
+    return { done, ok, total: u.questions.length };
+  }
+  const hFlowDone = (u) => (u.flows || []).filter((_, i) => (S.dm || {})[`flow:h${u.no}:f:${i}`]).length;
+
+  function hhome(U) {
+    const c = hConceptStats(U), tk = U.terms.filter((x) => S.known[htid(U, x)]).length, q = hQuizStats(U), fl = U.flows || [];
+    const step = (tab, no, t, d, a, b, unit = '') => `
+      <button class="route" data-go="${tab}" type="button">
+        <span class="route-no ${b && a >= b ? 'done' : ''}">${b && a >= b ? '✓' : no}</span>
+        <span class="route-body"><span class="route-t">${t}</span><span class="route-d">${d}</span></span>
+        <span class="route-prog"><span class="bar"><span style="width:${pct(a, b)}%"></span></span><span class="route-m">${a} / ${b}${unit}</span></span>
+        <span class="route-go" aria-hidden="true">›</span>
+      </button>`;
+    main.innerHTML = `
+      <nav class="lesson-tabs" aria-label="단원">${HUNITS.map((u) => `<button class="ltab ${u.no === U.no ? 'on' : ''}" data-u="${u.no}" type="button"><b>${esc(u.code)}</b><span>${esc(u.title)}</span></button>`).join('')}</nav>
+      <section class="banner"><div><h1>${esc(U.code)}. ${esc(U.title)}</h1><p>${esc(HIST.textbook)} · ${esc(U.big || '')}</p></div><span class="banner-ghost"></span></section>
+      <h2 class="route-h">학습 순서</h2>
+      <div class="routes">
+        ${step('hconcept', 1, '개념 정리', U.sections.map((x) => x.title.replace(/^\d+\.\s*/, '')).join(' · '), c.ok, c.n, '칸')}
+        ${step('hterms', 2, '핵심 용어', '목록 · 카드 · 고르기 · 쓰기', tk, U.terms.length, ' 외움')}
+        ${fl.length ? step('hflow', 3, '흐름 잇기', fl.map((f) => f.title).join(' · '), hFlowDone(U), fl.length, '개') : ''}
+        ${step('hquiz', fl.length ? 4 : 3, '실전 문제', '학교 시험처럼 객관식 + 서술형', q.ok, q.total, ' 맞힘')}
+      </div>`;
+    main.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(b.dataset.go)));
+    main.querySelectorAll('[data-u]').forEach((b) => (b.onclick = () => setUnit(+b.dataset.u)));
+  }
+
+  // ───────── 개념 정리 ─────────
+  function hconcept(U) {
+    const tabs = seg('hc', [['read', '읽기'], ['cloze', '빈칸 채우기']], UI.hc || 'read');
+    if ((UI.hc || 'read') === 'read') {
+      main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '굵은 글씨가 시험에 나오는 핵심어예요', tabs) + U.sections.map((sec) => `
+        <section class="card hsec"><h3>${esc(sec.title)}</h3>${sec.blocks.map(hBlock).join('')}</section>`).join('');
+      return;
+    }
+    let n = 0;
+    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + U.sections.map((sec, si) => {
+      const rows = sec.blocks.filter((b) => b.pts).map((b) => `<div class="wsub">${esc(b.h)}</div>` + b.pts.map((p) => {
+        const ans = [...p.matchAll(/\{([^}]+)\}/g)].map((m) => m[1].replace(/\|/g, '/'));
+        const q = p.replace(/\{[^}]+\}/g, '______');
+        return ans.length ? rowBlank(`${++n}.`, q, ans) : `<div class="wrow"><span class="wn">•</span><div class="wbody"><div class="wq">${esc(p)}</div></div></div>`;
+      }).join('')).join('');
+      return part(`h${U.no}:c:${si}`, LETTERS[si], sec.title, rows);
+    }).join('');
+    bindWs(U);
+  }
+  function hBlock(b) {
+    let h = b.h ? `<div class="hblock-h">${esc(b.h)}</div>` : '';
+    if (b.pts) h += `<ul class="hpts">${b.pts.map((p) => `<li>${keyText(p)}</li>`).join('')}</ul>`;
+    if (b.table) h += `<div class="htable-wrap"><table class="htable"><tr>${b.table.head.map((x) => `<th>${esc(x)}</th>`).join('')}</tr>${b.table.rows.map((r) => `<tr>${r.map((x) => `<td>${keyText(x)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+    if (b.src) h += `<div class="hsrc"><div class="hsrc-t">📜 ${esc(b.src.t)}</div><div class="hsrc-b">${rich(b.src.body)}</div>${b.src.note ? `<div class="hsrc-n">💡 ${keyText(b.src.note)}</div>` : ''}</div>`;
+    if (b.tip) h += `<div class="tip">⚠️ ${keyText(b.tip)}</div>`;
+    return `<div class="hblock">${h}</div>`;
+  }
+
+  // ───────── 핵심 용어 ─────────
+  function hterms(U) {
+    const mode = UI.ht || 'list', T = U.terms;
+    const kn = T.filter((x) => S.known[htid(U, x)]).length;
+    let body = '';
+    if (mode === 'list') body = `<table class="wtable">${T.map((x) => `<tr class="${S.known[htid(U, x)] ? 'known' : ''}"><td class="w">${esc(x.t)}</td><td>${esc(x.d)}</td></tr>`).join('')}</table>`;
+    else if (mode === 'card') {
+      const pool = UI.onlyTodo ? T.filter((x) => !S.known[htid(U, x)]) : T;
+      if (!pool.length) body = `<div class="empty">다 외웠어요! 🎉 「안 외운 것만」을 끄면 처음부터 다시 볼 수 있어요.</div>`;
+      else {
+        const i = Math.min(UI.card, pool.length - 1), x = pool[i];
+        body = `<div class="flashbox"><div class="fcard" id="fcard"><div class="mean">${esc(x.d)}</div>${UI.cardFlip ? `<div class="big">${esc(x.t)}</div>` : '<div class="tap">설명을 보고 용어를 떠올린 뒤 눌러서 확인</div>'}</div>
+          <div class="fnav"><button class="btn" data-c="prev" type="button">← 이전</button><button class="btn no" data-c="no" type="button">몰라요</button><button class="btn ok" data-c="ok" type="button">외웠어요</button><button class="btn" data-c="next" type="button">다음 →</button></div>
+          <p class="meta" style="text-align:center">${i + 1} / ${pool.length}</p></div>`;
+      }
+    } else body = hTermTest(U);
+    main.innerHTML = head(`핵심 용어 · ${esc(U.code)}`, `${kn} / ${T.length} 외움`) +
+      `<div class="bar-row">${seg('ht', [['list', '전체 목록'], ['card', '카드 외우기'], ['pick', '용어 고르기'], ['write', '용어 쓰기']], mode)}
+       ${mode === 'card' ? `<span class="grow"></span><label class="hint"><input type="checkbox" id="only-todo" ${UI.onlyTodo ? 'checked' : ''} style="width:auto"> 안 외운 것만</label>` : ''}</div>` + body;
+    if (mode === 'card') {
+      const pool = UI.onlyTodo ? T.filter((x) => !S.known[htid(U, x)]) : T;
+      const card = $('#fcard'); if (card) card.onclick = () => { UI.cardFlip = !UI.cardFlip; render(); };
+      const ot = $('#only-todo'); if (ot) ot.onchange = () => { UI.onlyTodo = ot.checked; UI.card = 0; render(); };
+      main.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => {
+        const i = Math.min(UI.card, pool.length - 1), x = pool[i], c = b.dataset.c;
+        if (c === 'ok') { S.known[htid(U, x)] = true; logEv('용어 카드', 1, 1, x.t); fxAfter(true, '.fcard'); }
+        if (c === 'no') delete S.known[htid(U, x)];
+        save();
+        if (c === 'prev') UI.card = Math.max(0, i - 1); else if (c === 'ok' && UI.onlyTodo) UI.card = i; else UI.card = (i + 1) % pool.length;
+        UI.cardFlip = false; render();
+      }));
+    } else if (mode !== 'list') bindHTermTest(U);
+  }
+  function hTermTest(U) {
+    const T = U.terms, mode = UI.ht;
+    if (!UI.htest || UI.htest.mode !== mode || UI.htest.unit !== U.no) UI.htest = { mode, unit: U.no, order: shuffle(T.map((_, i) => i)), i: 0, ok: 0, no: 0, answered: null, misses: [] };
+    const X = UI.htest;
+    if (X.i >= X.order.length) return `<div class="card done-card"><span class="big">${X.ok} / ${X.order.length}</span><span class="sub">${X.misses.length ? '틀린 용어: ' + X.misses.map(esc).join(', ') : '전부 맞혔어요!'}</span><div class="actions"><button class="btn primary" id="t-again" type="button">다시 보기</button></div></div>`;
+    const x = T[X.order[X.i]];
+    const runHead = `<div class="run-head"><span class="run-count">${X.i + 1} / ${X.order.length}</span><span class="run-bar"><span style="width:${pct(X.i, X.order.length)}%"></span></span><span class="run-score"><span class="ok">○ ${X.ok}</span><span class="no">✕ ${X.no}</span></span></div>`;
+    if (mode === 'pick') {
+      if (!X.choices || X.choicesFor !== X.i) { X.choices = shuffle([x, ...shuffle(T.filter((y) => y !== x)).slice(0, 4)]); X.choicesFor = X.i; }
+      return `<div class="qwrap">${runHead}<div class="card q-card"><div class="q-ask"><div class="ko">${esc(x.d)}</div></div>
+        <div class="choices">${X.choices.map((c, k) => { let cls = ''; if (X.answered != null) { if (c === x) cls = 'right'; else if (k === X.answered) cls = 'wrong'; }
+          return `<button class="choice ${cls}" data-k="${k}" type="button" ${X.answered != null ? 'disabled' : ''}><span class="n">${k + 1}</span>${esc(c.t)}</button>`; }).join('')}</div>
+        ${X.answered != null ? `<div class="actions"><button class="btn primary" id="t-next" type="button">다음 →</button></div>` : ''}</div></div>`;
+    }
+    return `<div class="qwrap">${runHead}<div class="card q-card"><div class="q-ask"><div class="ko">${esc(x.d)}</div></div>
+      <div class="spell"><div class="spell-shape">첫 글자 <b>${esc(x.t[0])}</b> · ${x.t.replace(/\s/g, '').length}글자</div>
+      <div class="spell-row"><input id="t-in" autocomplete="off" spellcheck="false" ${X.answered != null ? 'disabled' : ''} value="${esc(X.typed || '')}"><button class="btn primary" id="t-check" type="button" ${X.answered != null ? 'hidden' : ''}>확인</button></div>
+      ${X.answered != null ? `<div class="verdict ${X.answered ? 'ok' : 'no'}">${X.answered ? '정답!' : `정답은 <b>${esc(x.t)}</b>`}</div><div class="actions"><button class="btn primary" id="t-next" type="button">다음 →</button></div>` : ''}</div></div></div>`;
+  }
+  function bindHTermTest(U) {
+    const X = UI.htest; if (!X) return;
+    const x = U.terms[X.order[X.i]];
+    const again = $('#t-again'); if (again) again.onclick = () => { UI.htest = null; render(); };
+    const mark = (ok) => { if (ok) X.ok++; else { X.no++; X.misses.push(x.t); delete S.known[htid(U, x)]; } logEv(UI.ht === 'pick' ? '용어 고르기' : '용어 쓰기', ok ? 1 : 0, 1, x.t); fxAfter(ok, ok ? (UI.ht === 'pick' ? '.choice.right' : '.verdict') : (UI.ht === 'pick' ? '.choice.wrong' : '#t-in')); save(); };
+    main.querySelectorAll('.choice').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; X.answered = k; mark(X.choices[k] === x); render(); }));
+    const inp = $('#t-in');
+    const check = () => { X.typed = inp.value; const ok = accepts(inp.value, [x.t, ...(x.alt || [])].join('/')); X.answered = ok; mark(ok); render(); };
+    if (inp && X.answered == null) { inp.focus(); inp.onkeydown = (e) => e.key === 'Enter' && !e.isComposing && check(); $('#t-check').onclick = check; }
+    const nx = $('#t-next'); if (nx) { nx.onclick = () => { X.i++; X.answered = null; X.typed = ''; render(); }; nx.focus(); }
+  }
+
+  // ───────── 흐름 잇기 ─────────
+  // 사건을 일어난 순서대로 놓아요. 맞히면 연도와 함께 정리된 흐름이 보입니다.
+  function hflow(U) {
+    const F = U.flows || [];
+    main.innerHTML = head(`흐름 잇기 · ${esc(U.code)}`, '낱장을 눌러 일어난 순서대로 놓아요. 잘못 놓은 건 다시 누르면 돌아가요.') +
+      `<div class="list">${F.map((f, fi) => {
+        const id = `h${U.no}:f:${fi}`, done = (S.dm || {})['flow:' + id] && !UI.redo[id];
+        if (done) return `<section class="card hflow done"><h3>${esc(f.title)}</h3><ol class="htl">${f.steps.map((x) => `<li>${x.y ? `<b>${esc(x.y)}</b>` : ''}<span>${esc(x.t)}</span></li>`).join('')}</ol><div class="verdict ok">✓ 완료 <button class="link" data-redo="${id}" type="button">다시 해 보기</button></div></section>`;
+        const sh = shuffle(f.steps.map((x, i) => ({ t: x.t, i })), id);
+        return `<section class="card hflow"><h3>${esc(f.title)}</h3><div class="tray answer vtray" data-flow="${fi}"></div><div class="tray vtray">${sh.map((o) => `<button class="chip" data-i="${o.i}" type="button">${esc(o.t)}</button>`).join('')}</div><div class="verdict" hidden></div></section>`;
+      }).join('')}</div>`;
+    main.querySelectorAll('[data-redo]').forEach((b) => (b.onclick = () => { UI.redo[b.dataset.redo] = 1; const y = scrollY; render(); scrollTo(0, y); }));
+    main.querySelectorAll('[data-flow]').forEach((ans) => {
+      const fi = +ans.dataset.flow, f = F[fi], id = `h${U.no}:f:${fi}`, pool = ans.nextElementSibling, ver = pool.nextElementSibling;
+      const check = () => {
+        const placed = [...ans.children].map((c) => +c.dataset.i);
+        if (placed.length !== f.steps.length) { ver.hidden = true; return; }
+        const ok = placed.every((v, i) => v === i);
+        ver.hidden = false; ver.className = 'verdict ' + (ok ? 'ok' : 'no');
+        ver.innerHTML = ok ? '정답! 🎉' : `순서가 달라요 — 틀린 낱장을 눌러 빼고 다시 놓아 봐요`;
+        logEv('흐름 잇기', ok ? 1 : 0, 1, f.title);
+        if (ok) { S.dm = S.dm || {}; S.dm['flow:' + id] = Date.now(); delete UI.redo[id]; save(); react(true, ans); setTimeout(() => { const y = scrollY; render(); scrollTo(0, y); }, 700); }
+        else { [...ans.children].forEach((c, i) => c.classList.toggle('bad', +c.dataset.i !== i)); react(false, ans); }
+      };
+      pool.onclick = (e) => { const c = e.target.closest('.chip'); if (!c || c.classList.contains('used')) return; c.classList.add('used'); const n = c.cloneNode(true); n.classList.remove('used'); ans.appendChild(n); check(); };
+      ans.onclick = (e) => { const c = e.target.closest('.chip'); if (!c) return; pool.querySelector(`.chip[data-i="${c.dataset.i}"]`).classList.remove('used'); c.remove(); check(); };
+    });
+  }
+
+  // ───────── 역사 실전 문제 ─────────
+  const HCATS = ['전체', '개념', '자료', '서술형'];
+  function hPool(U) {
+    if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
+    const sc = UI.hquizScope || 'one';
+    const one = (u) => u.questions.map((q, i) => qByKey(`h:${u.no}:${i}`));
+    const src = sc === 'exam' ? HEXAMS.flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
+    const cat = UI.hquizCat || '전체';
+    return src.filter(Boolean).filter(({ q }) => cat === '전체' || (cat === '서술형' ? q.type === 'short' || q.type === 'essay' : q.cat === cat && q.type === 'mc'));
+  }
+  function hquiz(U) {
+    UI.hquizScope = UI.hquizScope || 'one';
+    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = { pool: UI.hquizScope === 'one' ? pool : shuffle(pool), i: 0, picks: {} }; }
+    const Q = UI.hquiz, st = hQuizStats(U);
+    const scopes = [['one', `이 단원 (${U.questions.length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`], ...(HEXAMS.length ? [['exam', '기출 시험지']] : [])];
+    let html = head(`실전 문제 · ${UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, `이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
+      `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>`;
+    if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
+    if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
+    html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
+    const answered = Object.values(Q.picks), okN = answered.filter((r) => r.ok).length;
+    if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 두 번 연속 맞히면 빠져요.</span></div>`;
+    const cur = Q.pool[Q.i];
+    html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
+      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button><button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →</button></div></div>`;
+    main.innerHTML = html;
+    hBindTop();
+    bindQuestion(cur, (r) => { Q.picks[cur.key] = r; render(); });
+    main.querySelectorAll('[data-qi]').forEach((b) => (b.onclick = () => { Q.i = +b.dataset.qi; render(); }));
+    $('#q-prev').onclick = () => { Q.i--; render(); };
+    $('#q-next').onclick = () => { Q.i++; render(); };
+  }
+  function hBindTop() { const r = $('#q-reset'); if (r) r.onclick = () => { UI.hquiz = null; render(); }; const a = $('#q-all'); if (a) a.onclick = () => { UI.quizOnly = null; UI.hquiz = null; render(); }; }
 
   // ───────── 숙제 ─────────
   // content/homework.json 의 요일별 숙제. 해야 할 일마다 앱 기록(S.ws·mem·qa·wrong)으로 끝났는지 스스로 판단합니다.
@@ -982,6 +1224,9 @@
     (!t.checks.some((c) => c.type === 'wrongClear') || hwDayOf(t).tasks.filter((x) => x !== t && !x.checks.some((c) => c.type === 'wrongClear')).every((x) => x.checks.every((c) => hwCheck(c).ok)));
   function hwGo(t) {
     const g = t.go || {};
+    S.subj = g.subj === 'hist' ? 'hist' : 'en';
+    if (g.unit) S.hunit = g.unit;
+    ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
     ['words', 'read', 'drill', 'grammar', 'comm'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.rpart != null) UI.rpart = g.rpart;
@@ -989,7 +1234,7 @@
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
-    if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; render(); }
+    if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
   }
   function hwMessage(d) {
     const at = S.hwDone && S.hwDone[d.id] ? new Date(S.hwDone[d.id]) : new Date();
@@ -1048,7 +1293,11 @@
       <div class="stat"><div class="k">연속 공부</div><div class="val">${streak}<em>일째</em></div></div>
       <div class="stat"><div class="k">전체 정답률</div><div class="val">${an ? pct(aok, an) : 0}<em>%</em></div></div>
       <div class="stat"><div class="k">오답노트</div><div class="val">${Object.keys(S.wrong).length}<em>문제</em></div></div></div>`;
-    html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">과별 진도</h3>${LESSONS.map((l) => {
+    if (HIST) html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">역사 단원별 진도</h3>${HUNITS.map((u) => {
+      const c = hConceptStats(u), t = u.terms.filter((x) => S.known[htid(u, x)]).length, q = hQuizStats(u);
+      return `<div class="lrow"><b>${esc(u.code)}</b><span>개념 빈칸 ${c.n ? `${c.ok}/${c.n}칸` : '—'}</span><span>용어 ${t}/${u.terms.length}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
+    }).join('')}</div>`;
+    html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">영어 과별 진도</h3>${LESSONS.map((l) => {
       const q = quizStats(l), ws = wordsOf(l), kn = ws.filter((w) => S.known[wid(l, w)]).length;
       const wsd = Object.entries(S.ws || {}).filter(([k]) => k.startsWith(l.no + ':'));
       const wok = wsd.reduce((a, [, v]) => a + v.ok, 0), wn = wsd.reduce((a, [, v]) => a + v.total, 0);
@@ -1058,7 +1307,7 @@
     if (!keys.length) html += `<div class="empty">아직 기록이 없어요. 아무 문제나 하나 풀면 여기에 바로 남아요 👻</div>`;
     keys.slice(0, 30).forEach((k) => {
       const arr = days[k], [o, n] = sum(arr), d = new Date(k);
-      const groups = {}; arr.forEach((e) => { const g = `${e.l}과 · ${e.k}`; (groups[g] = groups[g] || [0, 0, 0]); groups[g][0] += e.ok; groups[g][1] += e.n; groups[g][2]++; });
+      const groups = {}; arr.forEach((e) => { const g = `${e.sj === 'hist' ? `역사 ${(HUNITS.find((u) => u.no === e.l) || {}).code || e.l}` : `${e.l}과`} · ${e.k}`; (groups[g] = groups[g] || [0, 0, 0]); groups[g][0] += e.ok; groups[g][1] += e.n; groups[g][2]++; });
       const misses = arr.filter((e) => e.ok < e.n && e.t).slice(-12);
       html += `<div class="card logday"><div class="logday-h"><b>${d.getMonth() + 1}월 ${d.getDate()}일 (${wd[d.getDay()]})</b><span class="badge ${n && o === n ? 'ok' : ''}">${o} / ${n} 맞힘 · ${pct(o, n)}%</span></div>
         <div class="loggrid">${Object.entries(groups).map(([g, v]) => `<div class="logg"><span>${esc(g)}</span><b>${v[0]}/${v[1]}</b></div>`).join('')}</div>
@@ -1078,11 +1327,13 @@
   }
 
   // ───────── 오답노트 ─────────
+  // 오답 키 — 역사는 'h:' / 'hx:' 로 시작합니다.
+  const wrongKeys = () => Object.keys(S.wrong).filter((k) => /^hx?:/.test(k) === isHist());
   function wrong() {
-    const keys = Object.keys(S.wrong);
+    const keys = wrongKeys();
     const items = keys.map(qByKey).filter(Boolean);
     if (!UI.wrongPicks) UI.wrongPicks = {};
-    let html = head('오답노트', '5~8과에서 틀린 문제가 모여요. 두 번 연속 맞히면 빠져요.');
+    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 두 번 연속 맞히면 빠져요.`);
     if (!items.length) { main.innerHTML = html + `<div class="empty">아직 틀린 문제가 없어요 👻</div>`; return; }
     html += `<div class="qwrap list">${items.map((it, n) => `<div data-wk="${it.key}">${questionCard(it, UI.wrongPicks[it.key], n + 1)}${UI.wrongPicks[it.key] ? `<div class="hint" style="margin:6px 4px 0">연속 정답 ${S.wrong[it.key] ?? 2} / 2</div>` : ''}</div>`).join('')}</div>`;
     main.innerHTML = html;
@@ -1098,12 +1349,12 @@
       const inp = box.querySelector('#sh-in');
       if (inp && !inp.disabled) {
         inp.removeAttribute('id');
-        const go = () => { const v = inp.value; const ok = it.q.answer.some((a) => sameSentence(a, v));
+        const go = () => { const v = inp.value; const ok = shortOk(it.q, v);
           S.qa[it.key] = { ok, at: Date.now() };
           if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) delete S.wrong[it.key]; }
           logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .verdict`);
           save(); UI.wrongPicks[it.key] = { typed: v, ok }; const y = scrollY; render(); scrollTo(0, y); };
-        inp.onkeydown = (e) => e.key === 'Enter' && go();
+        inp.onkeydown = (e) => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), go());
         box.querySelector('#sh-go').onclick = go;
         box.querySelector('#sh-give').onclick = () => { inp.value = ''; go(); };
       }
@@ -1114,7 +1365,7 @@
 
   // 단어 카드 — 스페이스로 뒤집기
   document.addEventListener('keydown', (e) => {
-    if (S.tab === 'words' && UI.words === 'card' && e.code === 'Space' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); UI.cardFlip = !UI.cardFlip; render(); }
+    if (((S.tab === 'words' && UI.words === 'card') || (S.tab === 'hterms' && UI.ht === 'card')) && e.code === 'Space' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); UI.cardFlip = !UI.cardFlip; render(); }
   });
 
   // ───────── 시작 ─────────
@@ -1202,7 +1453,7 @@
     if (!r.ok) throw new Error(`${r.status}`);
     const t = await r.text(); return t ? JSON.parse(t) : null;
   }
-  const shareable = () => { const o = { ...S }; ['tab', 'lesson', 'syncKey', 'seedApplied'].forEach((k) => delete o[k]); return o; };
+  const shareable = () => { const o = { ...S }; ['tab', 'lesson', 'subj', 'hunit', 'syncKey', 'seedApplied'].forEach((k) => delete o[k]); return o; };
   async function syncNow(redraw) {
     if (!SYNC || !S.syncKey) return;
     if (syncBusy) { clearTimeout(pushT); pushT = setTimeout(() => syncNow(redraw), 1200); return; } // 맞추는 중이면 끝나고 한 번 더
@@ -1222,7 +1473,7 @@
   setInterval(() => syncNow(true), 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(true); });
 
-  S.tab = HW && dayKey(Date.now()) <= HW.due ? 'hw' : 'home'; // 숙제가 있으면 숙제부터, 없으면 단원 홈
+  S.tab = HW && dayKey(Date.now()) <= HW.due ? 'hw' : isHist() ? 'hhome' : 'home'; // 숙제가 있으면 숙제부터, 없으면 단원 홈
   render();
   (async () => {
     if (SYNC && S.syncKey) {

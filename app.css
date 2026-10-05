@@ -1402,6 +1402,49 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .teacher-bar label { margin-left: auto; display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .teacher-bar select { width: auto; padding: 4px 28px 4px 10px; font-size: 13px; color: var(--ink); }
 
+/* ───────── 과목 전환 · 역사 ───────── */
+.subj-seg { display: flex; gap: 2px; padding: 3px; margin-bottom: 10px; background: var(--line-soft); border: 1px solid var(--line); border-radius: 12px; }
+.subj-seg button { flex: 1; padding: 7px 10px; font: inherit; font-size: 13px; font-weight: 800; color: var(--sub); background: none; border: 0; border-radius: 9px; cursor: pointer; }
+.subj-seg button.on { color: var(--accent); background: var(--card); box-shadow: var(--shadow); }
+@media (max-width: 900px) { .subj-seg { margin-bottom: 0; } }
+/* 역사는 교과서처럼 초록 계열 */
+:root[data-subj="hist"] {
+  --accent: #1f9e78; --accent-2: #6cc9a8; --accent-soft: #e6f6f0;
+  --banner: linear-gradient(115deg, #8fd9bd, #b2e6d2 40%, #d6f2e7 70%, #f0faf6); --banner-ink: #0f5a43;
+  --shadow: 0 1px 2px rgba(23, 33, 58, 0.04), 0 8px 24px rgba(31, 158, 120, 0.08);
+}
+@media (prefers-color-scheme: dark) {:root:not([data-theme="light"])[data-subj="hist"] { --accent: #5fd0a8; --accent-2: #2f9c78; --accent-soft: #17352c; --banner: linear-gradient(115deg, #1f5a48 0%, #1d4a3d 50%, #183a31 100%); --banner-ink: #d8f5ea; }
+}
+.hsec { padding: 18px 20px; margin-bottom: 14px; }
+.hsec h3 { margin: 0 0 6px; font-size: 17px; }
+.hblock { margin-top: 12px; }
+.hblock-h { font-size: 14px; font-weight: 800; color: var(--accent); margin-bottom: 4px; }
+.hpts { margin: 0; padding-left: 18px; }
+.hpts li { margin: 3px 0; font-size: 14.5px; line-height: 1.7; color: var(--ink); }
+.hk { color: var(--ink); background: linear-gradient(transparent 58%, color-mix(in srgb, var(--accent) 26%, transparent) 58%); font-weight: 800; }
+.htable-wrap { overflow-x: auto; margin-top: 6px; }
+.htable { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.55; }
+.htable th, .htable td { padding: 7px 9px; border: 1px solid var(--line); vertical-align: top; text-align: left; }
+.htable th { background: var(--accent-soft); color: var(--accent); font-weight: 800; white-space: nowrap; }
+.hsrc { margin-top: 8px; padding: 12px 14px; background: var(--line-soft); border-left: 3px solid var(--accent); border-radius: 8px; }
+.hsrc-t { font-size: 13px; font-weight: 800; color: var(--mid); }
+.hsrc-b { margin-top: 4px; font-size: 14px; line-height: 1.7; color: var(--ink); white-space: pre-line; }
+.hsrc-n { margin-top: 6px; font-size: 13px; color: var(--accent); font-weight: 600; }
+.hflow { padding: 16px 18px; }
+.hflow h3 { margin: 0 0 10px; font-size: 16px; }
+.vtray { flex-direction: column; align-items: stretch; }
+.vtray .chip { text-align: left; white-space: normal; }
+.vtray.answer { counter-reset: st; }
+.vtray.answer .chip::before { counter-increment: st; content: counter(st) ". "; font-weight: 800; color: var(--accent); }
+.chip.bad { border-color: var(--err, #e5484d); color: var(--err, #e5484d); }
+.htl { margin: 0; padding-left: 20px; }
+.htl li { margin: 4px 0; font-size: 14px; line-height: 1.6; }
+.htl li b { display: inline-block; min-width: 72px; margin-right: 6px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.essay textarea { width: 100%; min-height: 80px; padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.6; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; resize: vertical; }
+.vtray .chip.used { display: none; }
+.hflow .tray + .tray { margin-top: 8px; }
+.hflow .verdict { margin-top: 10px; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
@@ -1437,6 +1480,8 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
   }
 
 :root[data-theme="dark"][data-lesson] { --banner: linear-gradient(115deg, #2c3f78 0%, #2a3a66 50%, #222c48 100%); }
+
+:root[data-theme="dark"][data-subj="hist"] { --accent: #5fd0a8; --accent-2: #2f9c78; --accent-soft: #17352c; --banner: linear-gradient(115deg, #1f5a48 0%, #1d4a3d 50%, #183a31 100%); --banner-ink: #d8f5ea; }
 
 :root:not([data-theme="light"]) { } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } } :root[data-theme="dark"] { color-scheme: dark; }
 

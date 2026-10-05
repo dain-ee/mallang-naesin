@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="말랑 내신">
 <title>말랑 내신</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="app.css?v=1791122379">
+<link rel="stylesheet" href="app.css?v=1791179985">
 </head>
 <body>
 
@@ -19,6 +19,7 @@
 
   <!-- ───────── 사이드바 ───────── -->
   <aside class="sidebar">
+    <div class="subj-seg" id="subj" hidden><button type="button" data-subj="en">영어</button><button type="button" data-subj="hist">역사</button></div>
     <div class="switch">
       <button class="brand" id="brand" type="button" aria-haspopup="listbox" aria-expanded="false">
         <span class="mark"></span>
@@ -31,17 +32,7 @@
       <div class="menu" id="lesson-menu" role="listbox" hidden></div>
     </div>
 
-    <nav class="nav" id="nav">
-      <button class="nav-item" data-tab="hw"      type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>
-      <button class="nav-item is-on" data-tab="home"    type="button"><i class="ni">⌂</i>단원 홈</button>
-      <button class="nav-item" data-tab="words"   type="button"><i class="ni">1</i>단어</button>
-      <button class="nav-item" data-tab="comm"    type="button"><i class="ni">2</i>의사소통</button>
-      <button class="nav-item" data-tab="grammar" type="button"><i class="ni">3</i>문법</button>
-      <button class="nav-item" data-tab="reading" type="button"><i class="ni">4</i>본문</button>
-      <button class="nav-item" data-tab="quiz"    type="button"><i class="ni">5</i>실전 문제</button>
-      <button class="nav-item" data-tab="wrong"   type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button>
-      <button class="nav-item" data-tab="log"     type="button"><i class="ni">✓</i>기록</button>
-    </nav>
+    <nav class="nav" id="nav"></nav>
 
     <div class="side-foot">
       <div class="sync-state" id="sync-state" data-state="off"></div>
@@ -55,7 +46,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <div id="boot-msg" class="boot-msg">불러오는 중…</div>
-<script src="config.js?v=1791122379"></script>
-<script src="loader.js?v=1791122379"></script>
+<script src="config.js?v=1791179985"></script>
+<script src="loader.js?v=1791179985"></script>
 </body>
 </html>
