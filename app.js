@@ -186,10 +186,10 @@
     const hs = isHist();
     document.documentElement.dataset.lesson = hs ? '' : S.lesson;
     document.documentElement.dataset.subj = hs ? 'hist' : 'en';
-    const navKey = (hs ? 'h' : 'e') + (HW ? 1 : 0);
+    const navKey = (hs ? 'h' : 'e') + (HW && !hs ? 1 : 0);
     if ($('#nav').dataset.k !== navKey) {
       $('#nav').dataset.k = navKey;
-      $('#nav').innerHTML = `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>` +
+      $('#nav').innerHTML = (hs ? '' : `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>`) +
         NAV[hs ? 'hist' : 'en'].map(([t, i, n]) => `<button class="nav-item" data-tab="${t}" type="button"><i class="ni">${i}</i>${n}</button>`).join('') +
         `<button class="nav-item" data-tab="wrong" type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button><button class="nav-item" data-tab="log" type="button"><i class="ni">✓</i>기록</button>`;
     }
@@ -199,7 +199,7 @@
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === S.tab));
     const w = wrongKeys().length; const t = $('#wrong-tally'); t.hidden = !w; t.textContent = w;
     $('#who-name').textContent = S.who;
-    if (HW) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
+    if (HW && !hs) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
   }
   $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) go(b.dataset.tab); });
   const brand = $('#brand'), menu = $('#lesson-menu');
@@ -222,7 +222,7 @@
   function setSubj(sj) {
     if (sj === S.subj) return;
     S.subj = sj; UI.test = null; UI.quiz = null; UI.htest = null; UI.hquiz = null; UI.quizOnly = null;
-    if (!['hw', 'wrong', 'log'].includes(S.tab)) S.tab = sj === 'hist' ? 'hhome' : 'home';
+    if (!['wrong', 'log'].includes(S.tab) || (S.tab === 'hw' && sj === 'hist')) S.tab = sj === 'hist' ? 'hhome' : 'home';
     save(true); render(); window.scrollTo(0, 0);
   }
   function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.htest = null; UI.hquiz = null; save(true); render(); }
@@ -242,8 +242,8 @@
   function render() {
     syncSide();
     if (isHist()) {
-      if (!['hw', 'wrong', 'log'].includes(S.tab) && !S.tab.startsWith('h')) S.tab = 'hhome';
-      ({ hw: hwView, hhome, hconcept, hterms, hflow, hquiz, wrong, log: logView })[S.tab]?.(hunit());
+      if (S.tab === 'hw' || (!['wrong', 'log'].includes(S.tab) && !S.tab.startsWith('h'))) S.tab = 'hhome';
+      ({ hhome, hconcept, hterms, hflow, hquiz, wrong, log: logView })[S.tab]?.(hunit());
     } else {
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
       const L = lesson();
