@@ -1444,6 +1444,16 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .vtray .chip.used { display: none; }
 .hflow .tray + .tray { margin-top: 8px; }
 .hflow .verdict { margin-top: 10px; }
+/* 영어 서술형 */
+.short2 .sp-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; }
+.short2 .sp-row:first-child { margin-top: 0; }
+.short2 .sp-n { flex: none; padding-top: 10px; font-size: 13px; font-weight: 800; color: var(--accent); }
+.short2 textarea.sh-part { flex: 1; min-height: 44px; font-size: 15.5px; line-height: 1.6; resize: none; overflow: hidden; }
+.short2 textarea.sh-part:disabled { color: var(--ink); background: var(--line-soft); }
+.sh-hintbox { margin-top: 8px; padding: 9px 12px; font-size: 13.5px; font-weight: 700; color: var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--card)); border-radius: 10px; }
+.sh-diff { margin: 6px 0 4px; font-weight: 600; }
+.sh-diff .ok { color: var(--ok); } .sh-diff .miss { color: var(--err); text-decoration: underline wavy; text-underline-offset: 4px; } .sh-diff .extra { color: var(--sub); text-decoration: line-through; }
+.verdict .sh-self { margin-top: 8px; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

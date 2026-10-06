@@ -968,8 +968,13 @@
       body += `<div class="short essay"><textarea id="sh-in" rows="3" spellcheck="false" placeholder="문장으로 써 보세요" ${r ? 'disabled' : ''}>${esc(r ? r.typed : '')}</textarea><div class="actions" style="justify-content:flex-start"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div></div>`;
       if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? '핵심어가 다 들어갔어요!' : `빠진 핵심어: ${esc(missingKeys(q, r.typed).join(', '))}`}<span class="tip">모범 답안: ${esc(q.answer[0])}</span></div>`;
     } else if (q.type === 'short') {
-      body += `<div class="short spell-row"><input id="sh-in" autocomplete="off" spellcheck="false" placeholder="답을 쓰고 Enter" ${r ? 'disabled' : ''} value="${esc(r ? r.typed : '')}"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div>`;
-      if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? '정답!' : '아쉬워요'}<span class="tip">모범 답안: ${q.answer.map(esc).join('  /  ')}</span></div>`;
+      const parts = shortParts(q), typed = r ? String(r.typed || '').split(' ‖ ') : [];
+      body += `<div class="short2">${(parts || ['']).map((p, i) => `<div class="sp-row">${parts ? `<span class="sp-n">(${i + 1})</span>` : ''}<textarea class="sh-part" rows="${parts ? 1 : 2}" spellcheck="false" autocomplete="off" placeholder="${parts ? `(${i + 1})의 답` : '답을 쓰세요 · Enter 채점 · Shift+Enter 줄바꿈'}" ${r ? 'disabled' : ''}>${esc(typed[i] || '')}</textarea></div>`).join('')}
+        ${r ? '' : `<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary sh-go" type="button">채점</button><button class="btn ghost sh-hint" type="button">💡 힌트</button><button class="btn ghost sh-give" type="button">모르겠어요</button></div><div class="sh-hintbox" hidden>${esc(shortHint(q))}</div>`}</div>`;
+      if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? (r.self ? '✓ 내 답도 맞음 (스스로 채점)' : '정답!') : '아쉬워요 — 모범 답안과 다른 곳을 확인해요'}
+        ${!r.ok && r.typed ? `<div class="diff-line sh-diff">${shortDiff(q, r.typed)}</div>` : ''}
+        <span class="tip">모범 답안: ${q.answer.map(esc).join('  /  ')}</span>
+        ${!r.ok && r.typed ? '<button class="btn sm2 sh-self" type="button">내 답도 맞아요</button>' : ''}</div>`;
     } else {
       body += `<div class="choices">${q.choices.map((c, k) => {
         let cls = ''; if (r) { if (k === q.answer) cls = 'right'; else if (k === r.pick) cls = 'wrong'; }
@@ -983,6 +988,44 @@
   const squash = (x) => norm(x).replace(/ /g, '');
   const missingKeys = (q, v) => (q.keys || []).filter((g) => !g.some((k) => squash(v).includes(squash(k)))).map((g) => g[0]);
   const shortOk = (q, v) => (q.type === 'essay' ? !!v.trim() && !missingKeys(q, v).length : q.answer.some((a) => sameSentence(a, v)));
+  // ── 영어 서술형 ── 넓은 칸 · (1)(2) 나눠 쓰기 · 힌트 · 넉넉한 채점 · 스스로 맞음 표시
+  const cleanAns = (x) => String(x).replace(/[ⓐ-ⓩ①-⑳]/g, ' ').replace(/^\s*[:→\->]+\s*/, '').trim();
+  function shortParts(q) {
+    const a = String(q.answer[0] || ''); if (!/\(1\)/.test(a)) return null;
+    const ps = a.split(/\(\d\)/).map((t) => t.trim().replace(/[,\s]+$/, '')).filter(Boolean);
+    return ps.length > 1 ? ps : null;
+  }
+  const looseEq = (a, v) => sameSentence(cleanAns(a), cleanAns(v)) || variants(cleanAns(a)).some((x) => squash(x) === squash(cleanAns(v)));
+  function shortCheck(q, vals) {
+    const parts = shortParts(q);
+    if (!parts) return q.answer.some((a) => looseEq(a, vals.join(' ')));
+    return parts.every((_, i) => q.answer.some((a) => { const ps = String(a).split(/\(\d\)/).map((t) => t.trim().replace(/[,\s]+$/, '')).filter(Boolean); return ps[i] != null && looseEq(ps[i], vals[i] || ''); }));
+  }
+  function shortHint(q) {
+    const one = (t) => { const w = cleanAns(t).split(/\s+/).filter(Boolean); return `첫 글자 「${w[0] ? w[0][0] : ''}」 · ${w.length}단어`; };
+    const parts = shortParts(q);
+    return parts ? parts.map((p, i) => `(${i + 1}) ${one(p)}`).join('   ') : one(q.answer[0] || '');
+  }
+  function shortDiff(q, typed) {
+    const model = shortParts(q) ? shortParts(q).join(' / ') : String(q.answer[0] || '');
+    const d = lcsDiff(norm(cleanAns(typed.replace(/ ‖ /g, ' / '))).split(' ').filter(Boolean), norm(cleanAns(model)).split(' ').filter(Boolean));
+    return d.map(([k, w]) => `<span class="${k}">${esc(w)}</span>`).join(' ');
+  }
+  function bindShortBox(box, q, submit) {
+    const tas = [...box.querySelectorAll('.sh-part')];
+    const self = box.querySelector('.sh-self');
+    if (self) self.onclick = () => submit(tas.map((t) => t.value).join(' ‖ '), true, true);
+    if (!tas.length || tas[0].disabled) return;
+    const go = () => { const vals = tas.map((t) => t.value); if (!vals.some((v) => v.trim())) { shake(tas[0]); return; } submit(vals.join(' ‖ '), shortCheck(q, vals)); };
+    tas.forEach((t, i) => {
+      t.addEventListener('input', () => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; });
+      t.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (i < tas.length - 1) tas[i + 1].focus(); else go(); } };
+    });
+    box.querySelector('.sh-go').onclick = go;
+    box.querySelector('.sh-give').onclick = () => submit('', false);
+    box.querySelector('.sh-hint').onclick = () => { const h = box.querySelector('.sh-hintbox'); h.hidden = !h.hidden; };
+  }
+
   function bindQuestion(item, done) {
     const { q, key } = item;
     const record = (r) => {
@@ -995,6 +1038,7 @@
       save(); done(r);
     };
     main.querySelectorAll('.q-card .choice[data-k]').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; record({ pick: k, ok: k === q.answer }); }));
+    if (q.type === 'short') { const box = main.querySelector('.q-card'); if (box) bindShortBox(box, q, (typed, ok, self) => record({ typed, ok, self })); }
     const inp = $('#sh-in');
     if (inp && !inp.disabled) {
       const go = () => { const v = inp.value; if (!v.trim()) return; record({ typed: v, ok: shortOk(q, v) }); };
@@ -1351,6 +1395,12 @@
         logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .choice.${ok ? 'right' : 'wrong'}`);
         save(); UI.wrongPicks[it.key] = { pick: k, ok }; const y = scrollY; render(); scrollTo(0, y);
       }));
+      if (it.q.type === 'short') bindShortBox(box, it.q, (typed, ok, self) => {
+        S.qa[it.key] = { ok, at: Date.now() };
+        if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) delete S.wrong[it.key]; }
+        logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .verdict`);
+        save(); UI.wrongPicks[it.key] = { typed, ok, self }; const y = scrollY; render(); scrollTo(0, y);
+      });
       const inp = box.querySelector('#sh-in');
       if (inp && !inp.disabled) {
         inp.removeAttribute('id');
