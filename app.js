@@ -227,7 +227,7 @@
   }
   function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.htest = null; UI.hquiz = null; save(true); render(); }
   function setLesson(no) { if (no !== S.lesson) loading(no); S.lesson = no; UI.rpart = 0; UI.card = 0; UI.cardFlip = false; UI.test = null; UI.quiz = null; save(); render(); }
-  function go(tab) { if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
+  function go(tab) { if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
 
   // 단원을 바꾸면 유령이 잠깐 날아와 '5과 불러오는 중' — 바뀐 걸 확실히 느끼게.
   function loading(no, hs) {
@@ -588,13 +588,16 @@
 
   // ───────── 본문 ─────────
   function reading(L) {
-    const items = itemsFor(L, 'reading');
+    let items = itemsFor(L, 'reading');
+    if (UI.paras && UI.read === 'drill') items = items.filter((x) => UI.paras.includes(+x.id.split(':')[2].split('.')[0]));
     if (['ws', 'test'].includes(UI.read) && !L.ws) UI.read = 'note';
     const tabs = seg('read', [['note', '필기'], ...(L.ws ? [['ws', '학습지'], ['test', '본문시험']] : []), ['drill', '암기 연습']], UI.read);
     if (UI.read === 'note') { main.innerHTML = head(`본문 필기 · ${esc(L.readingTitle)}`, '문장을 드래그해 S·V·O·절을 표시하고, 아래 불릿에 필기해요', tabs) + noteView(L, items); bindNote(L, items); return; }
     if (UI.read === 'ws') { main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, 'Reading 학습지 — 핵심 암기 → 문법 + 본문 연습 → 필기 집중 연습', tabs) + wsReading(L); bindWs(L); return; }
     if (UI.read === 'test') { main.innerHTML = head(`본문시험 · ${L.no}과`, '우리말을 보고 본문 문장을 그대로 영작해요', tabs) + wsTest(L); bindWs(L); return; }
-    main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, `${L.no}과 본문 ${items.length}문장 · ★ 는 시험에 잘 나오는 문장`, tabs) + drill(items);
+    main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, `${L.no}과 본문 ${items.length}문장 · ★ 는 시험에 잘 나오는 문장`, tabs) +
+      (UI.paras ? `<div class="hw-banner">📌 숙제: ${esc(UI.partName || '')}만 보는 중 (${items.length}문장) <button class="link" id="para-all" type="button">본문 전체 보기</button></div>` : '') + drill(items);
+    const pa = $('#para-all'); if (pa) pa.onclick = () => { UI.paras = null; render(); };
     bindDrill(items);
   }
 
@@ -1264,22 +1267,51 @@
       const n = need.filter((id) => ((S.rev || {})[id] || 0) >= since).length;
       return { ok: need.length > 0 && n >= need.length, txt: need.length ? `${n}/${need.length}문장 복기` : '수업 필기 없음' };
     }
+    if (c.type === 'pickSet') {
+      const keys = (S.hwSets || {})[c.id];
+      if (!keys) return { ok: false, txt: '열면 새 문제 10개를 뽑아요' };
+      const done = keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length;
+      return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
+    }
     if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).length; return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
     return { ok: false, txt: '' };
   }
   // 오답노트 비우기는 그날 나머지 숙제를 다 한 뒤에만 완료로 칩니다 (처음부터 오답 0개라 저절로 체크되는 것 막기)
   const hwDayOf = (t) => HW.days.find((d) => d.tasks.includes(t));
+  // 새 문제 뽑기 — 아직 안 푼 문제(그리고 다른 숙제로 낸 적 없는 문제)에서 고르고, 한 번 뽑으면 고정
+  const PART_RE = { A: /Shoreditch|STIK|hippest|three figures/, B: /Banksy|Finsbury|leafless|sprayer|green tree/, C: /Muswell|Wilson|chewing gum|gum painting/ };
+  function pickPool(tags, lesson) {
+    const all = [...EXAMS.flatMap((e) => e.questions.map((q, i) => ({ q, key: `ex:${e.id}:${i}` }))), ...((LESSONS.find((l) => l.no === lesson) || {}).questions || []).map((q, i) => ({ q, key: `${lesson}:${i}` }))]
+      .filter(({ q }) => (q.lesson == null || q.lesson === lesson) && !isEnDef(q));
+    const txt = (q) => `${q.q} ${q.passage || ''} ${Array.isArray(q.choices) ? q.choices.join(' ') : ''}`;
+    const part = (q) => Object.keys(PART_RE).filter((p) => PART_RE[p].test(txt(q)));
+    return all.filter(({ q }) => tags.some((t) => (t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : part(q).includes(t)))).map((x) => x.key);
+  }
+  function hwEnsurePicks(d) {
+    if (TEACHER) return;
+    S.hwSets = S.hwSets || {};
+    const used = new Set([...Object.keys(S.qa), ...Object.values(S.hwSets).flat(), ...HW.days.flatMap((x) => x.tasks.flatMap((t) => (t.go && t.go.quizOnly) || []))]);
+    let changed = false;
+    d.tasks.forEach((t) => {
+      if (!t.pick || S.hwSets[t.pick.id]) return;
+      const pool = shuffle(pickPool(t.pick.tags, (t.go && t.go.lesson) || 5).filter((k) => !used.has(k)));
+      S.hwSets[t.pick.id] = pool.slice(0, t.pick.n); S.hwSets[t.pick.id].forEach((k) => used.add(k)); changed = true;
+    });
+    if (changed) save();
+  }
   const hwTaskOk = (t) => t.checks.every((c) => hwCheck(c).ok) &&
     (!t.checks.some((c) => c.type === 'wrongClear') || hwDayOf(t).tasks.filter((x) => x !== t && !x.checks.some((c) => c.type === 'wrongClear')).every((x) => x.checks.every((c) => hwCheck(c).ok)));
   function hwGo(t) {
-    const g = t.go || {};
+    let g = t.go || {};
     S.subj = g.subj === 'hist' ? 'hist' : 'en';
     if (g.unit) S.hunit = g.unit;
     ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
     ['words', 'read', 'drill', 'grammar', 'comm'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.rpart != null) UI.rpart = g.rpart;
+    if (g.pickSet) { hwEnsurePicks(hwDayOf(t)); g = { ...g, quizOnly: (S.hwSets || {})[g.pickSet] || [] }; }
     UI.noteReview = !!g.review;
+    UI.paras = g.paras || null; UI.partName = g.partName || null; // 그날 외울 부분만
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
@@ -1294,6 +1326,7 @@
   function hwView() {
     if (!HW) { main.innerHTML = head('숙제', '') + `<div class="empty">아직 숙제가 없어요.</div>`; return; }
     S.hwDone = S.hwDone || {};
+    HW.days.filter((d) => d.date <= todayKey()).forEach(hwEnsurePicks); // 오늘(과 지난) 숙제는 문제를 미리 뽑아 고정
     const t = todayKey(), due = new Date(HW.due + 'T00:00:00'), dd = Math.round((due - new Date(t + 'T00:00:00')) / 864e5);
     let justDone = null;
     HW.days.forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
@@ -1430,6 +1463,7 @@
     if (!sd) return false;
     const before = JSON.stringify(S);
     const or = (a = {}, b = {}) => { const o = { ...a }; for (const k in b) if (b[k] && (!o[k] || (typeof b[k] === 'number' && b[k] > o[k]))) o[k] = b[k]; return o; };
+    S.hwSets = { ...(S.hwSets || {}), ...(sd.hwSets || {}) };
     S.mem = or(S.mem, sd.mem); S.known = or(S.known, sd.known); S.dm = or(S.dm, sd.dm); S.hwDone = or(S.hwDone, sd.hwDone); S.rev = or(S.rev, sd.rev);
     S.ws = S.ws || {}; S.wsAt = S.wsAt || {}; S.wsv = S.wsv || {};
     for (const k in sd.ws || {}) {
