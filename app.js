@@ -215,7 +215,7 @@
     inp.value = S.who; inp.style.cssText = 'padding:4px 8px;font-size:13px;width:110px';
     span.replaceWith(inp); inp.focus();
     const done = () => { S.who = inp.value.trim() || S.who; save(); inp.replaceWith(span); syncSide(); };
-    inp.addEventListener('keydown', (e) => e.key === 'Enter' && done()); inp.addEventListener('blur', done);
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(); }); inp.addEventListener('blur', done);
   });
 
   $('#subj').addEventListener('click', (e) => { const b = e.target.closest('[data-subj]'); if (b) setSubj(b.dataset.subj); });
@@ -387,7 +387,7 @@
     main.querySelectorAll('.choice').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; T.answered = k; mark(T.choices[k] === w); render(); }));
     const inp = $('#t-in');
     const check = () => { T.typed = inp.value; const ok = norm(inp.value) === norm(w.en); T.answered = ok; mark(ok); render(); };
-    if (inp && T.answered == null) { inp.focus(); inp.onkeydown = (e) => e.key === 'Enter' && check(); $('#t-check').onclick = check; }
+    if (inp && T.answered == null) { inp.focus(); inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) check(); }; $('#t-check').onclick = check; }
     const nx = $('#t-next'); if (nx) { nx.onclick = () => { T.i++; T.answered = null; T.typed = ''; render(); }; nx.focus(); }
   }
 
@@ -806,7 +806,7 @@
     return `<div class="bar-row"><span class="grow"></span>
         <label class="hint"><input type="checkbox" id="core-only" ${UI.coreOnly ? 'checked' : ''} style="width:auto"> 교과서 단어만 (유의어·반의어 빼기)</label></div>` +
       part(`${L.no}:v:A`, 'A', '단어 암기', `<div class="wgrid">${list.map((w) => `<div class="wrow memo wword ${w.core ? '' : 'rel'}"><div class="wbody"><span class="wen">${esc(w.en)}</span> : <span class="wkt">${esc(w.ko)}</span>${w.core ? '' : ' <span class="reltag">관련어</span>'}</div></div>`).join('')}</div>`, { memo: true, sub: `${list.length}개` }) +
-      part(`${L.no}:v:B`, 'B', '영영풀이 보고 단어 쓰기', v.enDef.map((d, i) => rowBlank(`${i + 1}.`, `${d.def} : ______`, [d.answer])).join('')) +
+      '' + // B 영영풀이는 선생님 학습지를 받은 뒤에 (지금은 숨김)
       part(`${L.no}:v:C`, 'C', '우리말 보고 단어 쓰기', core.map((w, i) => rowBlank(`${i + 1}.`, `${w.ko} : ______`, [w.en])).join('')) +
       part(`${L.no}:v:D`, 'D', '예문 완성하기', v.fill.map((f, i) => rowBlank(`${i + 1}.`, f.q, Array.isArray(f.answer) ? f.answer : [f.answer], f.ko)).join(''));
   }
@@ -925,7 +925,10 @@
 
   // ───────── 실전 문제 ─────────
   const CATS = ['전체', '어휘', '의사소통', '문법', '본문', '서술형'];
-  function qPool(L) {
+  // 영영풀이 문제는 선생님 학습지를 받은 뒤에 하기로 해서 지금은 빼 둡니다.
+  const isEnDef = (q) => /영영/.test(q.q || '');
+  function qPool(L) { return qPool0(L).filter(({ q }) => !isEnDef(q)); }
+  function qPool0(L) {
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean); // 숙제로 고른 문제만
     const src = UI.quizScope === 'exam' ? EXAMS.flatMap((e) => (UI.examSet === 'all' || UI.examSet === e.id ? e.questions : []).map((q, i) => ({ q, key: `ex:${e.id}:${i}`, no: q.lesson, src: e.title })))
       : UI.quizScope === 'all' ? LESSONS.flatMap((l) => l.questions.map((q, i) => ({ q, key: `${l.no}:${i}`, no: l.no }))) : L.questions.map((q, i) => ({ q, key: `${L.no}:${i}`, no: L.no }));
@@ -995,7 +998,7 @@
     const inp = $('#sh-in');
     if (inp && !inp.disabled) {
       const go = () => { const v = inp.value; if (!v.trim()) return; record({ typed: v, ok: shortOk(q, v) }); };
-      inp.onkeydown = (e) => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), go()); $('#sh-go').onclick = go;
+      inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); go(); } }; $('#sh-go').onclick = go;
       $('#sh-give').onclick = () => record({ typed: '', ok: false });
     }
   }
@@ -1129,7 +1132,7 @@
     main.querySelectorAll('.choice').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; X.answered = k; mark(X.choices[k] === x); render(); }));
     const inp = $('#t-in');
     const check = () => { X.typed = inp.value; const ok = accepts(inp.value, [x.t, ...(x.alt || [])].join('/')); X.answered = ok; mark(ok); render(); };
-    if (inp && X.answered == null) { inp.focus(); inp.onkeydown = (e) => e.key === 'Enter' && !e.isComposing && check(); $('#t-check').onclick = check; }
+    if (inp && X.answered == null) { inp.focus(); inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) check(); }; $('#t-check').onclick = check; }
     const nx = $('#t-next'); if (nx) { nx.onclick = () => { X.i++; X.answered = null; X.typed = ''; render(); }; nx.focus(); }
   }
 
@@ -1356,7 +1359,7 @@
           if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) delete S.wrong[it.key]; }
           logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .verdict`);
           save(); UI.wrongPicks[it.key] = { typed: v, ok }; const y = scrollY; render(); scrollTo(0, y); };
-        inp.onkeydown = (e) => e.key === 'Enter' && !e.shiftKey && !e.isComposing && (e.preventDefault(), go());
+        inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); go(); } };
         box.querySelector('#sh-go').onclick = go;
         box.querySelector('#sh-give').onclick = () => { inp.value = ''; go(); };
       }
