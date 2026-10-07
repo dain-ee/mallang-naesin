@@ -52,5 +52,5 @@
   }
   data.sync = C;
   window.NAESIN = data;
-  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || '') + '-' + Date.now(); // 늘 최신 앱 코드 s.onload = () => { const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
+  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onload = () => { const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
 })();
