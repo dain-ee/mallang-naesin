@@ -1457,6 +1457,7 @@
   });
 
   // ───────── 시작 ─────────
+  window.__naesinStarted = true; // 웹 시작 코드에 '정상 시작'을 알림
   setTimeout(() => { const s = $('#splash'); s.style.transition = 'opacity .35s'; s.style.opacity = 0; setTimeout(() => s.remove(), 360); $('.mark').classList.add('is-caught'); }, 650);
   // 두 기록 합치기 — 어느 쪽에서 한 것도 지우지 않고, 같은 항목은 더 나중에 한 쪽을 씁니다.
   function mergeInto(sd) {
