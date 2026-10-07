@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>말랑 내신 · 연결 점검</title>
+<style>
+body{margin:0;padding:24px 16px;font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;background:#f8fbff;color:#17213a}
+.box{max-width:560px;margin:0 auto}h1{font-size:20px;margin:0 0 4px}p{color:#44506b;font-size:14px;margin:0 0 16px}
+.row{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;margin:6px 0;background:#fff;border:1px solid #e1e8f6;border-radius:12px;font-size:14.5px}
+.st{flex:none;width:22px;text-align:center;font-weight:800}.ok .st{color:#1c7a4a}.no .st{color:#b03030}.wait .st{color:#7f8aa3}
+.d{font-size:12px;color:#7f8aa3;word-break:break-all}.sum{margin-top:14px;padding:12px 14px;border-radius:12px;font-weight:700;font-size:14px}
+</style></head><body><div class="box">
+<h1>말랑 내신 연결 점검</h1><p>다 끝나면 이 화면 전체를 캡처해서 선생님께 보내 주세요.</p>
+<div id="list"></div><div id="sum" class="sum" hidden></div>
+<p class="d" id="ua"></p></div>
+<script>
+(function(){
+  var list=document.getElementById('list');
+  document.getElementById('ua').textContent='브라우저: '+navigator.userAgent;
+  function row(name){var d=document.createElement('div');d.className='row wait';d.innerHTML='<span class="st">…</span><div><div>'+name+'</div><div class="d"></div></div>';list.appendChild(d);
+    return function(ok,detail){d.className='row '+(ok?'ok':'no');d.querySelector('.st').textContent=ok?'✓':'✕';d.querySelector('.d').textContent=detail||'';};}
+  function timed(p,ms){return Promise.race([p,new Promise(function(_,no){setTimeout(function(){no(new Error(ms/1000+'초 넘게 응답 없음'))},ms)})]);}
+  var res={};
+  async function run(){
+    var r1=row('1. 기본 기능 (자바스크립트·저장 공간)');
+    try{localStorage.setItem('naesin-check','1');var ls=localStorage.getItem('naesin-check')==='1';
+      r1(ls&&!!window.fetch&&!!window.crypto&&!!crypto.subtle&&typeof DecompressionStream!=='undefined','저장 '+(ls?'O':'X')+' · 암호풀기 '+(window.crypto&&crypto.subtle?'O':'X')+' · 압축풀기 '+(typeof DecompressionStream!=='undefined'?'O':'X'));res.basic=ls;}catch(e){r1(false,e.message);}
+    var r2=row('2. 앱 파일 받기 (github.io)');
+    try{var t=Date.now();var r=await timed(fetch('app.js?chk='+t),15000);var n=(await r.text()).length;r2(r.ok&&n>1000,'HTTP '+r.status+' · '+Math.round(n/1024)+'KB · '+(Date.now()-t)+'ms');res.gh=r.ok;}catch(e){r2(false,e.message);res.gh=false;}
+    var r3=row('3. 교재·문제 내용 받기 (github.io)');
+    try{var t=Date.now();var r=await timed(fetch('c/1bf05abb0b143cd402f2.bin?chk='+t),15000);var b=await r.arrayBuffer();r3(r.ok&&b.byteLength>1000,'HTTP '+r.status+' · '+Math.round(b.byteLength/1024)+'KB · '+(Date.now()-t)+'ms');res.content=r.ok;}catch(e){r3(false,e.message);res.content=false;}
+    var r4=row('4. 기록 서버 연결 (supabase.co)');
+    try{var t=Date.now();var C=window.NAESIN_SYNC;var r=await timed(fetch(C.url+'/rest/v1/rpc/naesin_whoami',{method:'POST',headers:{apikey:C.key,Authorization:'Bearer '+C.key,'Content-Type':'application/json'},body:JSON.stringify({p_code:'check'})}),15000);r4(r.ok,'HTTP '+r.status+' · '+(Date.now()-t)+'ms');res.server=r.ok;}catch(e){r4(false,e.message+' — 이 컴퓨터(또는 인터넷)가 기록 서버를 막고 있어요');res.server=false;}
+    var s=document.getElementById('sum');s.hidden=false;
+    if(res.gh&&res.content&&res.server){s.style.background='#e8f5ee';s.textContent='✓ 다 정상이에요. 앱 링크를 Ctrl+F5로 새로고침해 보세요.';}
+    else if(res.gh&&res.content&&!res.server){s.style.background='#fdecec';s.textContent='기록 서버만 막혀 있어요 → 선생님께 이 화면을 보내 주세요.';}
+    else{s.style.background='#fdecec';s.textContent='✕ 표시가 있는 단계가 막혀 있어요 → 선생님께 이 화면을 보내 주세요.';}
+  }
+  var sc=document.createElement('script');sc.src='config.js?chk='+Date.now();sc.onload=run;sc.onerror=function(){row('설정 파일 받기')(false,'config.js 를 못 받았어요');};document.head.appendChild(sc);
+})();
+</script></body></html>
