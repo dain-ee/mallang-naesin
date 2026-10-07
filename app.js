@@ -1539,7 +1539,8 @@
   let pushT = null, syncBusy = false;
   function syncMark(state, txt) { const el = document.getElementById('sync-state'); if (el) { el.dataset.state = state; el.textContent = txt; } }
   async function rpc(fn, body) {
-    const r = await fetch(`${SYNC.url}/rest/v1/rpc/${fn}`, { method: 'POST', headers: { apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const ac = new AbortController(); setTimeout(() => ac.abort(), 10000); // 서버가 막히거나 느려도 멈추지 않게
+    const r = await fetch(`${SYNC.url}/rest/v1/rpc/${fn}`, { signal: ac.signal, method: 'POST', headers: { apikey: SYNC.key, Authorization: `Bearer ${SYNC.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error(`${r.status}`);
     const t = await r.text(); return t ? JSON.parse(t) : null;
   }

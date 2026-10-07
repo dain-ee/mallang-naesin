@@ -36,6 +36,20 @@
   const code = q.get('k') || st.syncKey;
   const msg = (t) => { const m = document.getElementById('boot-msg'); if (m) m.textContent = t; };
   let cached = null; try { cached = JSON.parse(localStorage.getItem(CKEY)); } catch {}
+  // 1순위: 같은 주소(github.io)의 암호화 내용 — 서버(supabase) 연결이 막힌 컴퓨터에서도 열림
+  async function fetchLocalContent() {
+    const enc = new TextEncoder();
+    const hex = async (t) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(t)))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    const fid = (await hex('naesin:' + code)).slice(0, 20);
+    const r = await fetch('c/' + fid + '.bin?v=' + Date.now());
+    if (!r.ok) throw new Error('local ' + r.status);
+    const buf = new Uint8Array(await r.arrayBuffer());
+    const keyHex = await hex(code), keyBytes = new Uint8Array(keyHex.match(/../g).map((h) => parseInt(h, 16)));
+    const key = await crypto.subtle.importKey('raw', keyBytes, 'AES-CTR', false, ['decrypt']);
+    const plain = await crypto.subtle.decrypt({ name: 'AES-CTR', counter: buf.slice(0, 16), length: 64 }, key, buf.slice(16));
+    const txt = await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return JSON.parse(txt);
+  }
   async function fetchContent() {
     const r = await fetch(`${C.url}/rest/v1/rpc/naesin_content_get`, { method: 'POST', headers: { apikey: C.key, Authorization: `Bearer ${C.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_code: code }) });
     if (!r.ok) throw new Error(r.status);
@@ -44,7 +58,9 @@
   let data = null;
   if (!code) { msg('선생님이 보내 준 링크로 열어 주세요.'); return; }
   try {
-    const fresh = await fetchContent();
+    let fresh = null;
+    try { fresh = await fetchLocalContent(); } catch (e) { msg('불러오는 중… (다른 길로 시도)'); }
+    if (!fresh) fresh = await Promise.race([fetchContent(), new Promise((_, no) => setTimeout(() => no(new Error('server slow')), 8000))]);
     if (!fresh) { msg('링크가 맞지 않아요. 선생님께 다시 받아 주세요.'); return; }
     data = fresh; try { localStorage.setItem(CKEY, JSON.stringify(fresh)); } catch {}
   } catch (e) {
