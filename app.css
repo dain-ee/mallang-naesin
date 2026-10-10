@@ -1500,6 +1500,41 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .diff-line .bad { color: var(--err); text-decoration: line-through; text-decoration-thickness: 2px; }
 .diff-line .add { padding: 1px 6px; font-weight: 800; color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); border-radius: 6px; }
 
+/* ───────── 선생님 프린트 — 개념 카드 · 단어 맞추기 · 조건 영작 ───────── */
+.cc { display: flex; flex-direction: column; gap: 12px; }
+.cc-pt { padding-bottom: 4px; }
+.cc-h { margin-bottom: 4px; font-size: 16px; font-weight: 800; color: var(--ink); }
+.cc-pt .gform { margin: 2px 0 6px; }
+.cc-pt .gpoint, .cc-p { margin: 0; }
+.cc-ex { padding: 10px 14px; border-left: 4px solid var(--accent); background: var(--line-soft); border-radius: 0 10px 10px 0; }
+.cc-ex .en { font-size: 15.5px; font-weight: 700; line-height: 1.6; }
+.cc-ex .ko { margin-top: 2px; font-size: 13.5px; color: var(--sub); }
+.cc .sc-star { margin-top: 0; }
+.sc-pgt { margin-top: 18px; }
+.sc-vtools { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.sc-vocab .sc-ko { padding: 2px 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: default; }
+.sc-vocab.hidek .sc-ko { min-width: 84px; padding: 3px 10px; color: transparent; background: var(--accent-soft); border-radius: 8px; cursor: pointer; }
+.sc-vocab.hidek .sc-ko::before { content: "눌러 보기"; position: absolute; color: var(--accent); font-size: 12px; font-weight: 700; }
+.sc-vocab.hidek .sc-ko { position: relative; }
+.sc-vocab.hidek .sc-ko.peek { color: inherit; background: none; }
+.sc-vocab.hidek .sc-ko.peek::before { content: none; }
+.mt-wrap { padding: 18px 20px; margin-bottom: 16px; }
+.mt-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.mt-top .grow { flex: 1; }
+.mt-q { display: flex; gap: 10px; align-items: baseline; padding: 16px 18px; font-size: 17px; font-weight: 700; line-height: 1.6; background: var(--accent-soft); border-radius: 14px; }
+.mt-n { flex: none; font-size: 13px; font-weight: 800; color: var(--accent); }
+.mt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 6px; }
+.mt-chip.used { opacity: .35; }
+.mt-list { display: flex; flex-direction: column; margin-top: 12px; border-top: 1px solid var(--line-soft); }
+.mt-row { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 9px 4px; font: inherit; text-align: left; color: var(--ink); background: none; border: 0; border-bottom: 1px dashed var(--line-soft); cursor: pointer; }
+.mt-row.on { background: var(--accent-soft); border-radius: 8px; }
+.mt-row .mt-a { font-weight: 800; color: var(--sub); }
+.mt-row.ok .mt-a { color: var(--ok); }
+.mt-row .mt-d { font-size: 14px; line-height: 1.55; color: var(--mid); }
+.mt-ko { display: block; margin-top: 2px; font-size: 12.5px; color: var(--sub); }
+.cd-rule { display: inline-block; margin-bottom: 6px; padding: 3px 10px; font-size: 12.5px; font-weight: 800; color: #c2410c; background: color-mix(in srgb, #f97316 12%, var(--card)); border-radius: 99px; }
+@media (max-width: 640px) { .mt-row { grid-template-columns: 96px 1fr; } }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

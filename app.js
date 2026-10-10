@@ -164,6 +164,7 @@
   const hasComm = (L) => L.comm && (L.comm.functions.length || L.comm.dialogs.length);
   const memCount = (items) => items.filter((x) => S.mem[x.id]).length;
   // 5·6과처럼 영어과외TV 공식 단어 목록표가 있으면 그 목록(교과서 단어)을 씁니다. 예문·품사는 만든 자료에서 붙입니다.
+  const SCW_TABS = [['list', '단어장'], ['mdef', '영영풀이 맞추기'], ['mko', '뜻 맞추기'], ['card', '카드 외우기'], ['spell', '스펠링 쓰기'], ['sws', '프린트 빈칸']];
   function wordsOf(L) {
     const mine = [...L.words.map((w) => ({ ...w, kind: 'w' })), ...(L.phrases || []).map((w) => ({ ...w, pos: '숙어', kind: 'p' }))];
     if (!(L.ws && ((L.ws.source && ['englishtutortv', 'rule', 'official'].includes(L.ws.source.words)) || L.ws.vocab.from))) return mine; // 학교 프린트 단어가 있으면 그것
@@ -305,7 +306,8 @@
   // ───────── 단원 홈 ─────────
   function home(L) {
     const ws = wordsOf(L), wk = ws.filter((w) => S.known[wid(L, w)]).length;
-    const cm = [...itemsFor(L, 'fn'), ...itemsFor(L, 'dlg')], gm = itemsFor(L, 'gram'), rd = itemsFor(L, 'reading');
+    const cm = L.school ? scMemoItems(L, ['대화']) : [...itemsFor(L, 'fn'), ...itemsFor(L, 'dlg')], gm = L.school ? scMemoItems(L, ['문법 예문', '문법 문장']) : itemsFor(L, 'gram'), rd = itemsFor(L, 'reading');
+    const scAll = L.school ? L.school.pages.map((p) => scPageStat(L, p)).reduce((x, y) => ({ n: x.n + y.n, done: x.done + y.done }), { n: 0, done: 0 }) : null;
     const q = quizStats(L);
     const step = (tab, no, t, d, a, b, unit = '') => `
       <button class="route" data-go="${tab}" type="button">
@@ -319,7 +321,8 @@
       <section class="banner"><div><h1>Lesson ${L.no}. ${esc(L.title)}</h1><p>본문 「${esc(L.readingTitle)}」</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
       <div class="routes">
-        ${step('words', 1, '단어', '학습지 · 카드 · 뜻 고르기 · 스펠링', wk, ws.length, ' 외움')}
+        ${scAll ? step('school', '★', '학교 프린트', `${esc(L.school.school)} 선생님 프린트 ${L.school.pages.length}쪽 · 예문 외우기 · 조건 영작`, scAll.done, scAll.n, ' 풂') : ''}
+        ${step('words', 1, '단어', L.school ? '선생님 프린트 단어 · 영영풀이 맞추기 · 카드 · 스펠링' : '학습지 · 카드 · 뜻 고르기 · 스펠링', wk, ws.length, ' 외움')}
         ${hasComm(L) ? step('comm', 2, '의사소통', `${L.comm.functions.map((f) => f.name).join(' · ')} · 대화문 ${L.comm.dialogs.length}개`, memCount(cm), cm.length, ' 문장') : ''}
         ${step('grammar', hasComm(L) ? 3 : 2, '문법', L.grammar.map((g) => g.title.replace(/\s*\(.*\)$/, '')).join(' · '), memCount(gm), gm.length, ' 예문')}
         ${step('reading', hasComm(L) ? 4 : 3, '본문', `「${esc(L.readingTitle)}」 필기 · 학습지 · 본문시험`, memCount(rd), rd.length, ' 문장')}
@@ -342,76 +345,183 @@
   }
   const scGloss = (g) => (g ? `<div class="sc-g">✎ ${esc(g)}</div>` : '');
   const scHead = (h) => (h ? `<div class="sc-h">${esc(h)}</div>` : '');
-  function school(L) {
-    const SC = L.school;
-    if (!SC) { main.innerHTML = head(`학교 프린트 · ${L.no}과`, '') + `<div class="empty">${L.no}과 학교 프린트는 아직 없어요.<br>선생님이 프린트를 주시면 그대로 넣을게요.</div>`; return; }
-    S.sch = S.sch || {};
-    const pi = Math.min(UI.spage || 0, SC.pages.length - 1), pg = SC.pages[pi];
-    const tabs = `<div class="sc-pages">${SC.pages.map((p, i) => { const st = scPageStat(L, p); const cls = st.n && st.ok === st.n ? 'all' : st.done ? 'some' : ''; return `<button type="button" class="sc-pg ${i === pi ? 'on' : ''} ${cls}" data-sp="${i}">${p.no}</button>`; }).join('')}</div>`;
-    const st = scPageStat(L, pg);
-    let html = head(`학교 프린트 · ${L.no}과`, `${esc(SC.school)} 선생님 프린트 그대로 — ${SC.pages.length}쪽`) + tabs + (SC.missing ? `<div class="hw-banner">📷 아직 사진이 없는 쪽: ${esc(SC.missing.join(', '))}</div>` : '') +
-      `<div class="bar-row"><b class="sc-title">${pg.no}. ${esc(pg.title)}</b><span class="grow"></span>${st.n ? `<span class="badge ok">${st.ok} / ${st.n} 맞힘</span> <button class="link" id="sc-reset" type="button">이 쪽 다시 풀기</button>` : ''}</div><div class="sc-body">`;
-    pg.blocks.forEach((b, bi) => {
-      const k = scKey(L, pg, bi), r = S.sch[k];
-      html += scHead(b.h);
-      if (b.type === 'text') html += `<div class="gtext sc-text">${b.lines.map((t) => `<div>${esc(t)}</div>`).join('')}</div>`;
-      else if (b.type === 'table') html += `<div class="htable-wrap"><table class="htable"><tr>${b.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${b.rows.map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
-      else if (b.type === 'vocab') html += `<div class="sc-vtools"><label class="hint"><input type="checkbox" id="sc-hideko" ${UI.scHideKo ? 'checked' : ''} style="width:auto"> 뜻 가리기 (눌러서 보기)</label></div><table class="wtable sc-vocab">${b.rows.map(([en, ko, ex, g], ri) => `<tr><td class="w">${esc(en)}</td><td><span class="sc-ko ${UI.scHideKo && !UI.revealed[`${k}:${ri}`] ? 'veil-line' : ''}" data-scrv="${k}:${ri}">${esc(ko)}</span></td>${ex || g ? `<td>${ex ? `<div>${esc(ex)}</div>` : ''}${g ? `<div class="e">✎ ${esc(g)}</div>` : ''}</td>` : '<td></td>'}</tr>`).join('')}</table>`;
-      else if (b.type === 'notes') html += `<div class="card sc-notes">${b.items.map(([en, n]) => `<div class="sc-note"><div class="en">${esc(en)}</div>${n ? `<div class="sc-star">★ ${esc(n)}</div>` : ''}</div>`).join('')}</div>`;
-      else if (b.type === 'passage') html += `<div class="passage sc-pass">${esc(b.text).replace(/\n/g, '<br>')}</div>`;
-      else if (b.type === 'blank') {
-        const parts = b.s.split(/(\{\{[^}]+\}\})/); let j = 0;
-        const body = parts.map((t) => { const m = t.match(/^\{\{(.+)\}\}$/); if (!m) return esc(t); const ans = m[1], i = j++, v = r && r.v ? r.v[i] || '' : '', good = r && accepts(v, ans);
-          return `<input data-ans="${esc(ans)}" value="${esc(v)}" class="${r ? (good ? 'right' : 'wrong') : ''}" style="width:${Math.max(4, ans.split('/')[0].length) + 2}ch" autocomplete="off" spellcheck="false">`; }).join('');
-        const wrongAns = r && !r.ok ? `<div class="fix">정답: ${esc(parts.filter((t) => /^\{\{/.test(t)).map((t) => t.slice(2, -2)).join(' · '))}</div>` : '';
-        html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="cloze sc-cl">${body}</div>${b.ko ? `<div class="ko">${esc(b.ko)}</div>` : ''}${scGloss(b.g)}${wrongAns}</div></div>`;
-      } else if (b.type === 'write') {
-        const v = r ? r.v : '';
-        html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="q-text sc-q">${esc(b.q).replace(/\n/g, '<br>')}</div><div class="write"><textarea rows="2" data-scw="${k}" spellcheck="false" placeholder="답을 쓰고 Enter">${esc(v || '')}</textarea></div><div class="diff-line" ${r ? '' : 'hidden'}>${r ? scWriteFb(b, v) : ''}</div>${scGloss(b.g)}</div></div>`;
-      } else if (b.type === 'mc') {
-        const picked = r ? r.v : null, multi = b.answer.length > 1, sel = UI.scSel[k] || [];
-        html += `<div class="card q-card sc-mc" data-sc="${k}" style="padding:16px 18px"><p class="q-text">${esc(b.q)}</p>${b.passage ? `<div class="passage">${esc(b.passage).replace(/\n/g, '<br>')}</div>` : ''}<div class="choices">${b.choices.map((c, ci) => {
-          let cls = ''; if (picked) { if (b.answer.includes(ci)) cls = 'right'; else if (picked.includes(ci)) cls = 'wrong'; } else if (sel.includes(ci)) cls = 'sel';
-          return `<button class="choice ${cls}" data-scm="${k}" data-ci="${ci}" type="button" ${picked ? 'disabled' : ''}><span class="n">${b.choices.length === 2 ? '' : '①②③④⑤'[ci]}</span>${esc(c)}</button>`; }).join('')}</div>${multi && !picked ? `<div class="hint">답이 여러 개예요 — 모두 고른 뒤 <button class="btn ok" data-scok="${k}" type="button">채점</button></div>` : ''}${picked && b.exp ? `<div class="exp">${esc(b.exp)}</div>` : ''}${scGloss(b.g)}</div>`;
+  // 프린트 설명(▶ 개념 · e.g. 예문 · ★ 필기)을 문법 카드처럼
+  function scText(b) {
+    const out = b.lines.map((ln) => {
+      let m;
+      if ((m = ln.match(/^▶\s*(.+?)\s*[:：]\s*(.*)$/))) {
+        const forms = [...m[2].matchAll(/「([^」]+)」/g)].map((x) => x[1]);
+        return `<div class="cc-pt"><div class="cc-h">${esc(m[1])}</div>${forms.map((f) => `<span class="gform">${esc(f)}</span>`).join(' ')}<p class="gpoint">${esc(m[2])}</p></div>`;
       }
+      if (/^★/.test(ln)) return `<div class="sc-star">${esc(ln)}</div>`;
+      if (/^(e\.g\.\s*)?[A-Z"'(]/.test(ln) && /[A-Za-z]{3}/.test(ln)) {
+        const t = ln.replace(/^e\.g\.\s*/, ''), k = t.search(/[가-힣]/), en = k > 0 ? t.slice(0, k).trim() : t, ko = k > 0 ? t.slice(k).trim() : '';
+        return `<div class="cc-ex"><div class="en">${esc(en).replace(/ = /g, '<br>= ')}</div>${ko ? `<div class="ko">${esc(ko)}</div>` : ''}</div>`;
+      }
+      return `<p class="gpoint cc-p">${esc(ln)}</p>`;
     });
-    html += `</div><div class="sc-foot">${pi > 0 ? `<button class="btn" data-sp="${pi - 1}" type="button">← ${SC.pages[pi - 1].no}쪽</button>` : '<span></span>'}${pi < SC.pages.length - 1 ? `<button class="btn ok" data-sp="${pi + 1}" type="button">${SC.pages[pi + 1].no}쪽 →</button>` : ''}</div>`;
-    main.innerHTML = html;
-    const blockOf = (k) => pg.blocks[+k.split(':')[3]];
-    const keep = (k, rec) => { S.sch[k] = { ...rec, at: Date.now() }; logEv('학교 프린트', rec.ok ? 1 : 0, 1, `${L.no}과 프린트 ${pg.no}쪽`); save(); };
-    main.querySelectorAll('[data-sp]').forEach((b) => (b.onclick = () => { UI.spage = +b.dataset.sp; render(); scrollTo(0, 0); }));
-    const rs = $('#sc-reset'); if (rs) rs.onclick = () => { pg.blocks.forEach((_, bi) => delete S.sch[scKey(L, pg, bi)]); save(); render(); };
-    const hk = $('#sc-hideko'); if (hk) hk.onchange = () => { UI.scHideKo = hk.checked; render(); };
-    main.querySelectorAll('[data-scrv]').forEach((el) => (el.onclick = () => { UI.revealed[el.dataset.scrv] = 1; el.classList.remove('veil-line'); }));
-    // 빈칸 — 칸마다 Enter 로 다음 칸, 마지막 칸에서 채점
+    return `<div class="card gcard cc">${out.join('')}</div>`;
+  }
+  // 프린트 쪽들을 그리는 공통 부품 — 학교 프린트·단어·문법·의사소통·본문 칸이 같이 씀 (기록 키도 같음)
+  function scPagesHtml(L, pages, { titles = true } = {}) {
+    S.sch = S.sch || {};
+    return pages.map((pg) => {
+      let html = titles ? `<div class="sub-t sc-pgt">프린트 ${pg.no}쪽 · ${esc(pg.title)}</div>` : '';
+      pg.blocks.forEach((b, bi) => {
+        const k = scKey(L, pg, bi), r = S.sch[k];
+        html += scHead(b.h);
+        if (b.type === 'text') html += scText(b);
+        else if (b.type === 'table') html += `<div class="htable-wrap"><table class="htable"><tr>${b.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${b.rows.map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+        else if (b.type === 'vocab') html += `<div class="sc-vtools">${seg('scVoc', [['show', '뜻 보기'], ['hide', '뜻 가리기']], UI.scVoc || 'show')}${L.ws && L.ws.vocab.enDef && L.ws.vocab.enDef.length ? `<button class="btn ok sm2" data-gomatch type="button">영영풀이로 맞추기 →</button>` : ''}</div><table class="wtable sc-vocab ${UI.scVoc === 'hide' ? 'hidek' : ''}">${b.rows.map(([en, ko, ex, g]) => `<tr><td class="w">${esc(en)}</td><td><button class="sc-ko" type="button"><span>${esc(ko)}</span></button></td>${ex || g ? `<td>${ex ? `<div>${esc(ex)}</div>` : ''}${g ? `<div class="e">✎ ${esc(g)}</div>` : ''}</td>` : '<td></td>'}</tr>`).join('')}</table>`;
+        else if (b.type === 'notes') html += `<div class="card sc-notes">${b.items.map(([en, n]) => `<div class="sc-note"><div class="en">${esc(en)}</div>${n ? `<div class="sc-star">★ ${esc(n)}</div>` : ''}</div>`).join('')}</div>`;
+        else if (b.type === 'passage') html += `<div class="passage sc-pass">${esc(b.text).replace(/\n/g, '<br>')}</div>`;
+        else if (b.type === 'blank') {
+          const parts = b.s.split(/(\{\{[^}]+\}\})/); let j = 0;
+          const body = parts.map((t) => { const m = t.match(/^\{\{(.+)\}\}$/); if (!m) return esc(t); const ans = m[1], i = j++, v = r && r.v ? r.v[i] || '' : '', good = r && accepts(v, ans);
+            return `<input data-ans="${esc(ans)}" value="${esc(v)}" class="${r ? (good ? 'right' : 'wrong') : ''}" style="width:${Math.max(4, ans.split('/')[0].length) + 2}ch" autocomplete="off" spellcheck="false">`; }).join('');
+          const wrongAns = r && !r.ok ? `<div class="fix">정답: ${esc(parts.filter((t) => /^\{\{/.test(t)).map((t) => t.slice(2, -2)).join(' · '))}</div>` : '';
+          html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="cloze sc-cl">${body}</div>${b.ko ? `<div class="ko">${esc(b.ko)}</div>` : ''}${scGloss(b.g)}${wrongAns}</div></div>`;
+        } else if (b.type === 'write') {
+          const v = r ? r.v : '';
+          html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="q-text sc-q">${esc(b.q).replace(/\n/g, '<br>')}</div><div class="write"><textarea rows="2" data-scw="${k}" spellcheck="false" placeholder="답을 쓰고 Enter">${esc(v || '')}</textarea></div><div class="diff-line" ${r ? '' : 'hidden'}>${r ? scWriteFb(b, v) : ''}</div>${scGloss(b.g)}</div></div>`;
+        } else if (b.type === 'mc') {
+          const picked = r ? r.v : null, multi = b.answer.length > 1, sel = UI.scSel[k] || [];
+          html += `<div class="card q-card sc-mc" data-sc="${k}" style="padding:16px 18px"><p class="q-text">${esc(b.q)}</p>${b.passage ? `<div class="passage">${esc(b.passage).replace(/\n/g, '<br>')}</div>` : ''}<div class="choices">${b.choices.map((c, ci) => {
+            let cls = ''; if (picked) { if (b.answer.includes(ci)) cls = 'right'; else if (picked.includes(ci)) cls = 'wrong'; } else if (sel.includes(ci)) cls = 'sel';
+            return `<button class="choice ${cls}" data-scm="${k}" data-ci="${ci}" type="button" ${picked ? 'disabled' : ''}><span class="n">${b.choices.length === 2 ? '' : '①②③④⑤'[ci]}</span>${esc(c)}</button>`; }).join('')}</div>${multi && !picked ? `<div class="hint">답이 여러 개예요 — 모두 고른 뒤 <button class="btn ok" data-scok="${k}" type="button">채점</button></div>` : ''}${picked ? `<div class="hint">${b.exp ? `<div class="exp">${esc(b.exp)}</div>` : ''}<button class="link" data-scredo="${k}" type="button">다시 풀기</button></div>` : ''}${scGloss(b.g)}</div>`;
+        }
+      });
+      return html;
+    }).join('');
+  }
+  function scBind(L) {
+    const pgOf = (k) => L.school.pages.find((p) => p.no === +k.split(':')[2]);
+    const blockOf = (k) => pgOf(k).blocks[+k.split(':')[3]];
+    const keep = (k, rec) => { S.sch[k] = { ...rec, at: Date.now() }; logEv('학교 프린트', rec.ok ? 1 : 0, 1, `${L.no}과 프린트 ${pgOf(k).no}쪽`); save(); };
+    const again = () => { const y = scrollY; render(); scrollTo(0, y); };
+    main.querySelectorAll('.sc-vocab .sc-ko').forEach((b) => (b.onclick = () => b.classList.toggle('peek'))); // 가린 뜻은 눌러서 잠깐 보기 (다시 그리지 않음)
+    main.querySelectorAll('[data-gomatch]').forEach((b) => (b.onclick = () => { UI.words = 'mdef'; go('words'); }));
+    main.querySelectorAll('[data-scredo]').forEach((b) => (b.onclick = () => { delete S.sch[b.dataset.scredo]; save(); again(); }));
     main.querySelectorAll('.sc-item .sc-cl').forEach((box) => {
-      const item = box.closest('[data-sc]'), k = item.dataset.sc, ins = [...box.querySelectorAll('input')];
+      const k = box.closest('[data-sc]').dataset.sc, ins = [...box.querySelectorAll('input')];
       if (!ins.length) return;
       const grade = () => {
-        const vals = ins.map((i) => i.value), ok = ins.every((i) => accepts(i.value, i.dataset.ans));
-        keep(k, { ok: ok ? 1 : 0, v: vals }); fxAfter(ok, `[data-sc="${k}"]`); const y = scrollY; render(); scrollTo(0, y);
+        const ok = ins.every((i) => accepts(i.value, i.dataset.ans));
+        keep(k, { ok: ok ? 1 : 0, v: ins.map((i) => i.value) }); fxAfter(ok, `[data-sc="${k}"]`); again();
         if (!ok) return;
         const next = [...main.querySelectorAll('.sc-item input')].find((i) => !i.classList.contains('right') && !i.value); if (next) next.focus({ preventScroll: true });
       };
       ins.forEach((i, n) => (i.onkeydown = (e) => { if (e.key !== 'Enter' || e.isComposing) return; e.preventDefault(); if (n < ins.length - 1) ins[n + 1].focus(); else grade(); }));
+      ins.forEach((i) => i.addEventListener('change', () => { if (ins.every((x) => x.value.trim()) && !box.contains(document.activeElement)) grade(); })); // 다 채우고 다른 데를 누르면 자동 채점
     });
-    // 통문장 — Enter 로 채점(Shift+Enter 는 줄바꿈)
     main.querySelectorAll('[data-scw]').forEach((ta) => (ta.onkeydown = (e) => {
       if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return; e.preventDefault(); if (!ta.value.trim()) return;
-      const k = ta.dataset.scw, b = blockOf(k), ok = scWriteOk(b, ta.value);
-      keep(k, { ok: ok ? 1 : 0, v: ta.value }); fxAfter(ok, `[data-sc="${k}"]`); const y = scrollY; render(); scrollTo(0, y);
+      const k = ta.dataset.scw, ok = scWriteOk(blockOf(k), ta.value);
+      keep(k, { ok: ok ? 1 : 0, v: ta.value }); fxAfter(ok, `[data-sc="${k}"]`); again();
     }));
-    // 객관식
     main.querySelectorAll('[data-scm]').forEach((btn) => (btn.onclick = () => {
       const k = btn.dataset.scm, b = blockOf(k), ci = +btn.dataset.ci;
-      if (b.answer.length > 1) { const sel = UI.scSel[k] = UI.scSel[k] || []; const at = sel.indexOf(ci); if (at < 0) sel.push(ci); else sel.splice(at, 1); const y = scrollY; render(); scrollTo(0, y); return; }
-      const ok = b.answer[0] === ci; keep(k, { ok: ok ? 1 : 0, v: [ci] }); fxAfter(ok, `[data-scm="${k}"][data-ci="${ci}"]`); const y = scrollY; render(); scrollTo(0, y);
+      if (b.answer.length > 1) { const sel = UI.scSel[k] = UI.scSel[k] || []; const at = sel.indexOf(ci); if (at < 0) sel.push(ci); else sel.splice(at, 1); again(); return; }
+      const ok = b.answer[0] === ci; keep(k, { ok: ok ? 1 : 0, v: [ci] }); fxAfter(ok, `[data-scm="${k}"][data-ci="${ci}"]`); again();
     }));
     main.querySelectorAll('[data-scok]').forEach((btn) => (btn.onclick = () => {
       const k = btn.dataset.scok, b = blockOf(k), sel = (UI.scSel[k] || []).slice().sort();
       if (!sel.length) return;
-      const ok = sel.length === b.answer.length && b.answer.every((a) => sel.includes(a)); keep(k, { ok: ok ? 1 : 0, v: sel }); delete UI.scSel[k]; fxAfter(ok, `[data-sc="${k}"]`); const y = scrollY; render(); scrollTo(0, y);
+      const ok = sel.length === b.answer.length && b.answer.every((a) => sel.includes(a)); keep(k, { ok: ok ? 1 : 0, v: sel }); delete UI.scSel[k]; fxAfter(ok, `[data-sc="${k}"]`); again();
     }));
+    bindMatch(L); bindCond(L);
+  }
+  const scPages = (L, nos) => (L.school ? L.school.pages.filter((p) => nos.includes(p.no)) : []);
+  const scSect = (L, k) => (L.school && L.school.sections ? L.school.sections[k] || [] : []);
+
+  // ── 맞추기: 영영풀이(또는 뜻)를 하나씩 보여 주고, 단어 칩을 눌러 고름 — 맞힌 건 목록에 채워짐
+  function matchPairs(L, kind) {
+    const v = L.ws && L.ws.vocab; if (!v) return [];
+    const koOf = (en) => (v.list.find((w) => norm(w.en) === norm(en)) || {}).ko || '';
+    if (kind === 'def') return (v.enDef || []).map((d) => ({ q: d.def, a: d.answer, ko: d.ko || koOf(d.answer) }));
+    return v.list.map((w) => ({ q: w.ko, a: w.en, ko: w.ex || '' }));
+  }
+  function matchBox(L, kind) {
+    const key = `mt:${L.no}:${kind}`, pairs = matchPairs(L, kind); S.mt = S.mt || {}; UI.mtCur = UI.mtCur || {};
+    const done = (i) => !!(S.mt[`${key}:${i}`] || {}).ok, left = pairs.map((_, i) => i).filter((i) => !done(i));
+    const cur = left.includes(UI.mtCur[key]) ? UI.mtCur[key] : left[0];
+    const words = shuffle([...new Set(pairs.map((x) => x.a))].map((t) => ({ t })), key).map((o) => o.t);
+    const usedUp = (w) => pairs.every((x, i) => norm(x.a) !== norm(w) || done(i));
+    let html = `<div class="card mt-wrap" data-mt="${key}"><div class="mt-top"><b>${kind === 'def' ? '선생님 영영풀이 보고 단어 고르기' : '뜻 보고 단어 고르기'}</b><span class="grow"></span><span class="badge ok">${pairs.length - left.length} / ${pairs.length}</span> <button class="link" data-mtreset type="button">처음부터</button></div>`;
+    html += cur == null ? `<div class="empty">다 맞혔어요! 🎉</div>` : `<div class="mt-q"><span class="mt-n">${pairs.length - left.length + 1}</span>${esc(pairs[cur].q)}</div><div class="mt-chips">${words.map((w) => `<button class="chip mt-chip ${usedUp(w) ? 'used' : ''}" data-mtw="${esc(w)}" type="button">${esc(w)}</button>`).join('')}</div>`;
+    html += `<div class="mt-list">${pairs.map((x, i) => `<button class="mt-row ${done(i) ? 'ok' : ''} ${i === cur ? 'on' : ''}" data-mti="${i}" type="button"><span class="mt-a">${done(i) ? esc(x.a) : '?'}</span><span class="mt-d">${esc(x.q)}${done(i) && x.ko ? `<span class="mt-ko">${esc(x.ko)}</span>` : ''}</span></button>`).join('')}</div></div>`;
+    return html;
+  }
+  function bindMatch(L) {
+    main.querySelectorAll('[data-mt]').forEach((box) => {
+      const key = box.dataset.mt, pairs = matchPairs(L, key.split(':')[2]);
+      const cur = () => { const left = pairs.map((_, i) => i).filter((i) => !(S.mt[`${key}:${i}`] || {}).ok); return left.includes(UI.mtCur[key]) ? UI.mtCur[key] : left[0]; };
+      const again = () => { const y = scrollY; render(); scrollTo(0, y); };
+      box.querySelectorAll('[data-mti]').forEach((b) => (b.onclick = () => { if ((S.mt[`${key}:${b.dataset.mti}`] || {}).ok) return; UI.mtCur[key] = +b.dataset.mti; again(); }));
+      box.querySelectorAll('[data-mtw]').forEach((b) => (b.onclick = () => {
+        const i = cur(); if (i == null) return;
+        const ok = norm(b.dataset.mtw) === norm(pairs[i].a), r = S.mt[`${key}:${i}`] || {};
+        S.mt[`${key}:${i}`] = ok ? { ok: 1, miss: r.miss || 0, at: Date.now() } : { ok: 0, miss: (r.miss || 0) + 1, at: Date.now() };
+        logEv('단어 맞추기', ok ? 1 : 0, 1, pairs[i].a); save();
+        if (!ok) { react(false, b); return; }
+        UI.mtCur[key] = null; fxAfter(true, `[data-mt="${key}"] .mt-row[data-mti="${i}"]`); again();
+      }));
+      const rs = box.querySelector('[data-mtreset]'); if (rs) rs.onclick = () => { pairs.forEach((_, i) => delete S.mt[`${key}:${i}`]); save(); again(); };
+    });
+  }
+  // ── 조건 영작: that 금지 · 현재분사로 · O단어로(관계대명사 생략) 처럼 조건을 걸어 기계적으로 쓰는 버릇을 막음
+  function condCheck(c, v) {
+    const n = ` ${norm(v)} `, words = norm(v).split(' ').filter(Boolean), why = [];
+    (c.ban || []).forEach((w) => { if (n.includes(` ${norm(w)} `)) why.push(`「${w}」는 쓰면 안 돼요`); });
+    (c.need || []).forEach((w) => { if (!n.includes(` ${norm(w)} `)) why.push(`「${w}」가 들어가야 해요`); });
+    if (c.words && words.length !== c.words) why.push(`${c.words}단어로 써야 해요 (지금 ${words.length}단어)`);
+    return { ok: !why.length && c.ans.some((a) => norm(a) === norm(v)), why };
+  }
+  function condBox(L, from = 0, to = 999) {
+    const SC = L.school; if (!SC || !SC.cond) return '<div class="empty">조건 영작 문제가 아직 없어요.</div>';
+    S.sch = S.sch || {};
+    return `<div class="list">${SC.cond.slice(from, to).map((c, i) => {
+      const r = S.sch[c.id], v = r ? r.v : '', res = r ? condCheck(c, v) : null;
+      const near = r ? c.ans.slice().sort((a, b) => lcsDiff(norm(v).split(' '), norm(b).split(' ')).filter(([k]) => k === 'ok').length - lcsDiff(norm(v).split(' '), norm(a).split(' ')).filter(([k]) => k === 'ok').length)[0] : '';
+      const fb = !r ? '' : res.ok ? '<b class="ok">조건까지 완벽해요! ✓</b>' : `${res.why.length ? `<div class="fix">⚠️ ${res.why.map(esc).join(' · ')}</div>` : ''}${wrOk(v, near) ? `<div class="hint">정답: ${esc(near)}</div>` : wrDiff(v, near)}`;
+      return `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-cd="${c.id}"><span class="idx">${from + i + 1}</span><div class="body"><div class="cd-rule">조건 · ${esc(c.rule)}</div><div class="q-text sc-q">${esc(c.q)}</div><div class="write"><textarea rows="2" data-cdw="${c.id}" spellcheck="false" placeholder="조건에 맞게 쓰고 Enter">${esc(v || '')}</textarea></div><div class="diff-line" ${r ? '' : 'hidden'}>${fb}</div></div></div>`;
+    }).join('')}</div>`;
+  }
+  function bindCond(L) {
+    main.querySelectorAll('[data-cdw]').forEach((ta) => (ta.onkeydown = (e) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return; e.preventDefault(); if (!ta.value.trim()) return;
+      const c = L.school.cond.find((x) => x.id === ta.dataset.cdw), r = condCheck(c, ta.value);
+      S.sch[c.id] = { ok: r.ok ? 1 : 0, v: ta.value, at: Date.now() }; logEv('조건 영작', r.ok ? 1 : 0, 1, c.rule); save();
+      fxAfter(r.ok, `[data-cd="${c.id}"]`); const y = scrollY; render(); scrollTo(0, y);
+    }));
+  }
+  // ── 예문 외우기: 프린트 문장을 읽기·가리기·빈칸·배열·통영작으로 (암기 연습과 같은 부품)
+  const SC_GROUPS = ['단어 예문', '문법 예문', '문법 문장', '대화', '본문'];
+  function scMemoItems(L, groups) { return ((L.school || {}).sentences || []).filter((x) => groups.includes(x.group)); }
+
+  function school(L) {
+    const SC = L.school;
+    if (!SC) { main.innerHTML = head(`학교 프린트 · ${L.no}과`, '') + `<div class="empty">${L.no}과 학교 프린트는 아직 없어요.<br>선생님이 프린트를 주시면 그대로 넣을게요.</div>`; return; }
+    S.sch = S.sch || {};
+    const mode = UI.scMode || 'print';
+    const tabs = seg('scMode', [['print', '프린트 그대로'], ['memo', '예문 외우기'], ['cond', '조건 영작'], ['mdef', '영영풀이 맞추기']], mode);
+    let html = head(`학교 프린트 · ${L.no}과`, `${esc(SC.school)} 선생님 프린트 — ${SC.pages.length}쪽`, tabs);
+    if (mode === 'memo') {
+      const g = UI.scGroup || '전체', items = scMemoItems(L, g === '전체' ? SC_GROUPS : [g]);
+      main.innerHTML = html + `<div class="bar-row">${seg('scGroup', [['전체', '전체'], ...SC_GROUPS.map((x) => [x, x])], g)}</div>` + drill(items); bindDrill(items); return;
+    }
+    if (mode === 'cond') { main.innerHTML = html + `<p class="hint" style="margin:0 2px 12px">조건을 꼭 지켜서 써요. that만 쓰기·동사원형만 쓰기로는 안 풀려요.</p>` + condBox(L); scBind(L); return; }
+    if (mode === 'mdef') { main.innerHTML = html + matchBox(L, 'def') + matchBox(L, 'ko'); scBind(L); return; }
+    const pi = Math.min(UI.spage || 0, SC.pages.length - 1), pg = SC.pages[pi], st = scPageStat(L, pg);
+    html += `<div class="sc-pages">${SC.pages.map((p, i) => { const s2 = scPageStat(L, p); const cls = s2.n && s2.ok === s2.n ? 'all' : s2.done ? 'some' : ''; return `<button type="button" class="sc-pg ${i === pi ? 'on' : ''} ${cls}" data-sp="${i}">${p.no}</button>`; }).join('')}</div>` +
+      (SC.missing ? `<div class="hw-banner">📷 아직 사진이 없는 쪽: ${esc(SC.missing.join(', '))}</div>` : '') +
+      `<div class="bar-row"><b class="sc-title">${pg.no}. ${esc(pg.title)}</b><span class="grow"></span>${st.n ? `<span class="badge ok">${st.ok} / ${st.n} 맞힘</span> <button class="link" id="sc-reset" type="button">이 쪽 다시 풀기</button>` : ''}</div><div class="sc-body">` +
+      scPagesHtml(L, [pg], { titles: false }) +
+      `</div><div class="sc-foot">${pi > 0 ? `<button class="btn" data-sp="${pi - 1}" type="button">← ${SC.pages[pi - 1].no}쪽</button>` : '<span></span>'}${pi < SC.pages.length - 1 ? `<button class="btn ok" data-sp="${pi + 1}" type="button">${SC.pages[pi + 1].no}쪽 →</button>` : ''}</div>`;
+    main.innerHTML = html;
+    main.querySelectorAll('[data-sp]').forEach((b) => (b.onclick = () => { UI.spage = +b.dataset.sp; render(); scrollTo(0, 0); }));
+    const rs = $('#sc-reset'); if (rs) rs.onclick = () => { pg.blocks.forEach((_, bi) => delete S.sch[scKey(L, pg, bi)]); save(); render(); };
+    scBind(L);
   }
   function scWriteOk(b, v) {
     if (b.keys) return b.keys.every((w) => v.replace(/\s/g, '').includes(w));
@@ -427,6 +537,15 @@
 
   function words(L) {
     const ws = wordsOf(L);
+    if (L.school) { // 학교 프린트 단어만 — 단어장 · 영영풀이 맞추기 · 뜻 맞추기 · 카드 · 스펠링 · 프린트 빈칸
+      if (!['list', 'mdef', 'mko', 'card', 'spell', 'sws'].includes(UI.words)) UI.words = 'list';
+      if (['mdef', 'mko', 'sws'].includes(UI.words)) {
+        const kn = ws.filter((w) => S.known[wid(L, w)]).length;
+        main.innerHTML = head(`단어 · ${L.no}과`, `선생님 프린트 단어 ${ws.length}개 · ${kn}개 외움`, '') + `<div class="bar-row">${seg('words', SCW_TABS, UI.words)}</div>` +
+          (UI.words === 'mdef' ? matchBox(L, 'def') : UI.words === 'mko' ? matchBox(L, 'ko') : scPagesHtml(L, scPages(L, scSect(L, 'words'))));
+        scBind(L); return;
+      }
+    }
     const kn = ws.filter((w) => S.known[wid(L, w)]).length;
     let body = '';
     if (UI.words === 'ws' && !L.ws) UI.words = 'list';
@@ -455,7 +574,7 @@
       body = wordTest(L, ws);
     }
     main.innerHTML = head(`단어 · ${L.no}과`, `${kn} / ${ws.length} 외움 (숙어 포함)`, '') +
-      `<div class="bar-row">${seg('words', [...(L.ws ? [['ws', '학습지']] : []), ['list', '전체 목록'], ['card', '카드 외우기'], ['mean', '뜻 고르기'], ['spell', '스펠링 쓰기']], UI.words)}
+      `<div class="bar-row">${seg('words', L.school ? SCW_TABS : [...(L.ws ? [['ws', '학습지']] : []), ['list', '전체 목록'], ['card', '카드 외우기'], ['mean', '뜻 고르기'], ['spell', '스펠링 쓰기']], UI.words)}
        ${UI.words === 'card' ? `<span class="grow"></span>${seg('cardDir', [['en', '영어 → 뜻'], ['ko', '뜻 → 영어']], UI.cardDir)}<label class="hint"><input type="checkbox" id="only-todo" ${UI.onlyTodo ? 'checked' : ''} style="width:auto"> 안 외운 것만</label>` : ''}</div>` + body;
 
     if (UI.words === 'ws') bindWs(L);
@@ -674,6 +793,12 @@
   // ───────── 의사소통 ─────────
   function comm(L) {
     if (!hasComm(L)) { main.innerHTML = head(`의사소통 · ${L.no}과`, '') + `<div class="empty">${L.no}과는 교과서에 의사소통(대화문)이 없는 읽기 단원이에요.<br>문법과 본문에 집중해요!</div>`; return; }
+    if (L.school) { // 선생님 프린트 대화
+      if (!['cb', 'cm'].includes(UI.comm)) UI.comm = 'cb';
+      const tabs = seg('comm', [['cb', '대화 빈칸 (프린트)'], ['cm', '대화 외우기']], UI.comm), h = head(`의사소통 · ${L.no}과`, '학교 선생님 프린트 그대로', tabs);
+      if (UI.comm === 'cm') { const items = scMemoItems(L, ['대화']); main.innerHTML = h + drill(items); bindDrill(items); return; }
+      main.innerHTML = h + (L.school.missing ? `<div class="hw-banner">📷 아직 사진이 없는 쪽: ${esc(L.school.missing.join(', '))}</div>` : '') + scPagesHtml(L, scPages(L, scSect(L, 'comm'))); scBind(L); return;
+    }
     if (UI.comm === 'ws' && !(L.ws && L.ws.listen)) UI.comm = 'fn';
     const tabs = seg('comm', [...(L.ws && L.ws.listen ? [['ws', '학습지']] : []), ['fn', '핵심 표현 암기'], ['dlg', '대화문 암기'], ['fnAll', '기능 정리']], UI.comm);
     if (UI.comm === 'ws') { main.innerHTML = head(`의사소통 · ${L.no}과`, 'Listen & Speak 학습지 — 빈칸을 채우고 「채점」', tabs) + wsListen(L); bindWs(L); return; }
@@ -692,6 +817,14 @@
 
   // ───────── 문법 ─────────
   function grammar(L) {
+    if (L.school) { // 선생님 프린트 문법만
+      if (!['tc', 'tm', 'tk', 'td'].includes(UI.grammar)) UI.grammar = 'tc';
+      const tabs = seg('grammar', [['tc', '선생님 설명'], ['tm', '예문 외우기'], ['tk', 'Check Up · 워크북'], ['td', '조건 영작']], UI.grammar);
+      const h = head(`문법 · ${L.no}과`, '학교 선생님 프린트 그대로', tabs);
+      if (UI.grammar === 'tm') { const items = scMemoItems(L, ['문법 예문', '문법 문장']); main.innerHTML = h + drill(items); bindDrill(items); return; }
+      main.innerHTML = h + (UI.grammar === 'tc' ? scPagesHtml(L, scPages(L, scSect(L, 'gc'))) : UI.grammar === 'tk' ? scPagesHtml(L, scPages(L, scSect(L, 'gk'))) : `<p class="hint" style="margin:0 2px 12px">조건을 꼭 지켜서 써요. that만 쓰기·동사원형만 쓰기로는 안 풀려요.</p>` + condBox(L));
+      scBind(L); return;
+    }
     if (UI.grammar === 'ws' && !L.ws) UI.grammar = 'concept';
     const tabs = seg('grammar', [...(L.ws ? [['ws', '학습지']] : []), ['concept', '개념 정리'], ['ex', '예문 암기'], ['drill', '확인 문제']], UI.grammar);
     if (UI.grammar === 'ws') { main.innerHTML = head(`문법 · ${L.no}과`, 'Grammar 학습지 — 핵심 정리 → 예문 암기 → 예문 완성 → 전환 → 고치기 → 쓰기', tabs) + wsGrammar(L); bindWs(L); return; }
@@ -733,7 +866,8 @@
     let items = itemsFor(L, 'reading');
     if (UI.paras && UI.read === 'drill') items = items.filter((x) => UI.paras.includes(+x.id.split(':')[2].split('.')[0]));
     if (['ws', 'test'].includes(UI.read) && !L.ws) UI.read = 'note';
-    const tabs = seg('read', [['note', '필기'], ...(L.ws ? [['ws', '학습지'], ['test', '본문시험']] : []), ['drill', '암기 연습']], UI.read);
+    const tabs = seg('read', [['note', '필기'], ...(L.school ? [['sprint', '프린트 빈칸·선생님 필기']] : []), ...(L.ws ? [['ws', '학습지'], ['test', '본문시험']] : []), ['drill', '암기 연습']], UI.read);
+    if (UI.read === 'sprint' && L.school) { main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, '학교 선생님 프린트 — 빈칸 채우기와 수업 필기', tabs) + scPagesHtml(L, scPages(L, [...scSect(L, 'rb'), ...scSect(L, 'rn')].sort((a, b) => a - b))); scBind(L); return; }
     if (UI.read === 'note') { main.innerHTML = head(`본문 필기 · ${esc(L.readingTitle)}`, '문장을 드래그해 S·V·O·절을 표시하고, 아래 불릿에 필기해요', tabs) + noteView(L, items); bindNote(L, items); return; }
     if (UI.read === 'ws') { main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, 'Reading 학습지 — 핵심 암기 → 문법 + 본문 연습 → 필기 집중 연습', tabs) + wsReading(L); bindWs(L); return; }
     if (UI.read === 'test') { main.innerHTML = head(`본문시험 · ${L.no}과`, '우리말을 보고 본문 문장을 그대로 영작해요', tabs) + wsTest(L); bindWs(L); return; }
@@ -1022,10 +1156,7 @@
             const r = answers.some((a) => sameSentence(a, el.value));
             const fb = el.nextElementSibling; fb.hidden = false;
             if (r) { fb.innerHTML = '<span class="ok">✓ 정답</span>'; ok++; }
-            else {
-              const d = lcsDiff(norm(el.value).split(' ').filter(Boolean), norm(el.dataset.full).split(' '));
-              fb.innerHTML = d.map(([kk, w]) => `<span class="${kk}">${esc(w)}</span>`).join(' ') + `<div class="hint">정답: ${esc(el.dataset.full)}</div>`;
-            }
+            else { fb.classList.add('diff-line'); fb.innerHTML = wrDiff(el.value, el.dataset.full); }
             el.classList.toggle('right', r); el.classList.toggle('wrong', !r);
             const why = fb.nextElementSibling; if (why && why.classList.contains('wwhy')) why.hidden = false;
           }
@@ -1047,6 +1178,8 @@
         save();
       };
       const g = sec.querySelector('[data-grade]'); if (g) g.onclick = () => grade();
+      // 칸을 다 채웠으면 「채점」을 안 눌러도 그 자리에서 채점·기록 (했는데 기록이 안 남는 일 막기)
+      inputs.forEach((el) => el.addEventListener('change', () => { if (inputs.every((x) => x.value.trim())) grade(); }));
       // 채점했던 묶음은 다시 열 때도 맞은 칸·틀린 칸이 보이게 (기록은 다시 남기지 않음)
       if (saved && S.ws && S.ws[id] && inputs.some((el) => el.value.trim())) grade(true);
       const sh = sec.querySelector('[data-show]');
@@ -1394,7 +1527,8 @@
   // ───────── 숙제 ─────────
   // content/homework.json 의 요일별 숙제. 해야 할 일마다 앱 기록(S.ws·mem·qa·wrong)으로 끝났는지 스스로 판단합니다.
   const todayKey = () => dayKey(Date.now());
-  function hwToday() { if (!HW) return null; const t = todayKey(); return HW.days.find((d) => d.date === t) || null; }
+  const hwAllDays = () => (HW ? [...((HW.school && HW.school.days) || []), ...HW.days] : []); // 학교 프린트 숙제 + 본문·밀린 숙제
+  function hwToday() { if (!HW) return null; const t = todayKey(), ds = hwAllDays().filter((d) => d.date === t); return ds.length ? { tasks: ds.flatMap((d) => d.tasks) } : null; }
   function hwCheck(c) {
     if (c.type === 'ws') {
       const sc = (S.ws || {})[c.id], at = (S.wsAt || {})[c.id] || 0;
@@ -1420,6 +1554,21 @@
       const st = pages.map((p) => scPageStat(L, p)).reduce((a, b) => ({ n: a.n + b.n, ok: a.ok + b.ok, done: a.done + b.done }), { n: 0, ok: 0, done: 0 });
       return { ok: st.n > 0 && st.done >= st.n, txt: `${st.done}/${st.n}문항 풂 · ${st.ok}개 맞힘` };
     }
+    if (c.type === 'memo') { // 프린트 예문 외우기 — 그 모드(통영작·배열·빈칸)로 다 해 보기
+      const L = LESSONS.find((l) => l.no === c.lesson), ids = L ? scMemoItems(L, c.groups).map((x) => x.id) : [];
+      const n = ids.filter((id) => (S.dm || {})[`${c.mode}:${id}`] || (c.mode === 'write' && (S.wr || {})[id])).length, perfect = ids.filter((id) => (S.dm || {})[`${c.mode}:${id}`]).length;
+      return { ok: ids.length > 0 && n >= ids.length, txt: `${n}/${ids.length}문장${c.mode === 'write' ? ` · 완벽 ${perfect}개` : ''}` };
+    }
+    if (c.type === 'cond') {
+      const L = LESSONS.find((l) => l.no === c.lesson), cs = L && L.school && L.school.cond ? L.school.cond.slice(c.from || 0, c.to || 999) : [];
+      const done = cs.filter((x) => (S.sch || {})[x.id]).length, ok = cs.filter((x) => ((S.sch || {})[x.id] || {}).ok).length;
+      return { ok: cs.length > 0 && done >= cs.length, txt: `${done}/${cs.length}문제 풂 · ${ok}개 조건까지 맞힘` };
+    }
+    if (c.type === 'match') {
+      const L = LESSONS.find((l) => l.no === c.lesson), n = L ? matchPairs(L, c.kind).length : 0;
+      const ok = Array.from({ length: n }, (_, i) => ((S.mt || {})[`mt:${c.lesson}:${c.kind}:${i}`] || {}).ok).filter(Boolean).length;
+      return { ok: n > 0 && ok >= n, txt: `${ok}/${n}개 맞힘` };
+    }
     if (c.type === 'pickSet') {
       const keys = ((S.hwSets || {})[c.id] || null) && S.hwSets[c.id].filter((k) => { const x = qByKey(k); return x && !hideQ(x.q); }); // 범위 밖으로 숨긴 문제는 빼고 셈
       if (!keys) return { ok: false, txt: '열면 새 문제 10개를 뽑아요' };
@@ -1430,7 +1579,7 @@
     return { ok: false, txt: '' };
   }
   // 오답노트 비우기는 그날 나머지 숙제를 다 한 뒤에만 완료로 칩니다 (처음부터 오답 0개라 저절로 체크되는 것 막기)
-  const hwDayOf = (t) => HW.days.find((d) => d.tasks.includes(t));
+  const hwDayOf = (t) => hwAllDays().find((d) => d.tasks.includes(t));
   // 새 문제 뽑기 — 아직 안 푼 문제(그리고 다른 숙제로 낸 적 없는 문제)에서 고르고, 한 번 뽑으면 고정
   const PART_RE = { A: /Shoreditch|STIK|hippest|three figures/, B: /Banksy|Finsbury|leafless|sprayer|green tree/, C: /Muswell|Wilson|chewing gum|gum painting/ };
   function pickPool(tags, lesson) {
@@ -1461,6 +1610,7 @@
     ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
     ['words', 'read', 'drill', 'grammar', 'comm'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
+    ['scMode', 'scGroup'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.spage) { const SL = LESSONS.find((l) => l.no === (g.lesson || S.lesson)); const i = SL && SL.school ? SL.school.pages.findIndex((p) => p.no === g.spage) : -1; if (i >= 0) UI.spage = i; }
     if (g.rpart != null) UI.rpart = g.rpart;
     if (g.pickSet) { hwEnsurePicks(hwDayOf(t)); g = { ...g, quizOnly: (S.hwSets || {})[g.pickSet] || [] }; }
@@ -1480,14 +1630,14 @@
   function hwView() {
     if (!HW) { main.innerHTML = head('숙제', '') + `<div class="empty">아직 숙제가 없어요.</div>`; return; }
     S.hwDone = S.hwDone || {};
-    HW.days.filter((d) => d.date <= todayKey()).forEach(hwEnsurePicks); // 오늘(과 지난) 숙제는 문제를 미리 뽑아 고정
+    hwAllDays().filter((d) => d.date <= todayKey()).forEach(hwEnsurePicks); // 오늘(과 지난) 숙제는 문제를 미리 뽑아 고정
     const t = todayKey(), due = new Date(HW.due + 'T00:00:00'), dd = Math.round((due - new Date(t + 'T00:00:00')) / 864e5);
     let justDone = null;
-    HW.days.forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
+    hwAllDays().forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
     if (justDone && !TEACHER) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
     let html = perfBanner() + `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
       <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
-    html += `<div class="hw-days">${HW.days.map((d) => {
+    const dayCards = (days) => days.map((d) => {
       const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t;
       return `<section class="card hw-day ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">
         <div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${isToday ? '<span class="badge ok">오늘</span>' : ''}${late ? '<span class="badge err">밀린 숙제</span>' : ''}
@@ -1498,12 +1648,14 @@
             <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
         ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
       </section>`;
-    }).join('')}</div>`;
+    }).join('');
+    if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-days">${dayCards(HW.school.days)}</div><h2 class="route-h hw-group">📖 본문 외우기 · 밀린 숙제</h2>`;
+    html += `<div class="hw-days">${dayCards(HW.days)}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
-    main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = HW.days.find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
+    main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = hwAllDays().find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
     bindPerfBanner();
     main.querySelectorAll('[data-notify]').forEach((b) => (b.onclick = async () => {
-      const d = HW.days.find((x) => x.id === b.dataset.notify), msg = hwMessage(d), ta = main.querySelector(`[data-msg="${d.id}"]`);
+      const d = hwAllDays().find((x) => x.id === b.dataset.notify), msg = hwMessage(d), ta = main.querySelector(`[data-msg="${d.id}"]`);
       ta.value = msg; ta.hidden = false;
       try { await navigator.clipboard.writeText(msg); toast('복사했어요! 카톡 선생님 방에 붙여넣어 보내 주세요'); }
       catch { ta.focus(); ta.select(); toast('글을 길게 눌러 복사한 뒤 카톡으로 보내 주세요'); }
@@ -1626,6 +1778,7 @@
     const before = JSON.stringify(S);
     const or = (a = {}, b = {}) => { const o = { ...a }; for (const k in b) if (b[k] && (!o[k] || (typeof b[k] === 'number' && b[k] > o[k]))) o[k] = b[k]; return o; };
     S.hwSets = { ...(S.hwSets || {}), ...(sd.hwSets || {}) };
+    S.mt = S.mt || {}; for (const k in sd.mt || {}) if (!S.mt[k] || (sd.mt[k].at || 0) > (S.mt[k].at || 0)) S.mt[k] = sd.mt[k];
     S.sch = S.sch || {}; for (const k in sd.sch || {}) if (!S.sch[k] || (sd.sch[k].at || 0) > (S.sch[k].at || 0)) S.sch[k] = sd.sch[k];
     S.wr = S.wr || {}; for (const k in sd.wr || {}) if (!S.wr[k] || (sd.wr[k].at || 0) > (S.wr[k].at || 0)) S.wr[k] = sd.wr[k];
     S.mem = or(S.mem, sd.mem); S.known = or(S.known, sd.known); S.dm = or(S.dm, sd.dm); S.hwDone = or(S.hwDone, sd.hwDone); S.rev = or(S.rev, sd.rev);
@@ -1737,7 +1890,7 @@
           TEACHER = { students: (await rpc('naesin_students', { p_code: S.syncKey })) || [] };
           if (!params.get('s') && TEACHER.students[0]) S.who = TEACHER.students[0].student;
           const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
-          ['mem', 'known', 'qa', 'wrong', 'log', 'ws', 'wsAt', 'wsv', 'notes', 'notesAt', 'dm', 'rev', 'hwDone', 'wr', 'sch'].forEach((k) => delete S[k]);
+          ['mem', 'known', 'qa', 'wrong', 'log', 'ws', 'wsAt', 'wsv', 'notes', 'notesAt', 'dm', 'rev', 'hwDone', 'wr', 'sch', 'mt'].forEach((k) => delete S[k]);
           S.qa = {}; S.wrong = {}; S.mem = {}; S.known = {}; mergeInto(remote || {});
           document.documentElement.classList.add('teacher');
           teacherBar(); render();
