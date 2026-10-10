@@ -39,6 +39,7 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
   const KEY = 'mallang-naesin:v1', CKEY = 'mallang-naesin:content';
   const q = new URLSearchParams(location.search);
   let st = {}; try { st = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
+  if (q.get('k') && st.syncKey && st.syncKey !== q.get('k')) { try { localStorage.setItem(KEY, '{}'); localStorage.removeItem(CKEY); } catch (e) {} st = {}; } // 다른 아이 링크 — 앞 아이 기록과 섞지 않음
   const code = q.get('k') || st.syncKey;
   const msg = (t) => { const m = document.getElementById('boot-msg'); if (m) m.textContent = t; };
   let cached = null; try { cached = JSON.parse(localStorage.getItem(CKEY)); } catch {}
@@ -96,6 +97,7 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
           const key = await crypto.subtle.importKey('raw', kb, 'AES-CTR', false, ['decrypt']);
           const o = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-CTR', counter: buf.slice(0, 16), length: 64 }, key, buf.slice(16))));
           let cur = {}; try { cur = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e2) {}
+          if (cur.syncKey && cur.syncKey !== o.code) cur = {}; // 다른 아이 코드면 이 기기에 남은 앞 아이 기록을 섞지 않음 (서버에 이미 있음)
           cur.syncKey = o.code; cur.who = o.who;
           localStorage.setItem(KEY, JSON.stringify(cur));
           location.replace(location.pathname);
@@ -117,5 +119,5 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
   }
   data.sync = C;
   window.NAESIN = data;
-  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onerror = () => bootStep('앱 코드 못 받음'); s.onload = () => { bootStep('앱 코드 받음'); const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
+  const s = document.createElement('script'); s.src = (data.kind === 'jua' ? 'jua.js' : 'app.js') + '?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onerror = () => bootStep('앱 코드 못 받음'); s.onload = () => { bootStep('앱 코드 받음'); const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
 })();

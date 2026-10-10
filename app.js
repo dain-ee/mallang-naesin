@@ -201,7 +201,7 @@
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === S.tab));
     const schNav = document.querySelector('.nav-item[data-tab="school"]'); if (schNav) schNav.hidden = hs || !(L && L.school);
     const w = wrongKeys().length; const t = $('#wrong-tally'); t.hidden = !w; t.textContent = w;
-    $('#who-name').textContent = S.who;
+    $('#who-name').textContent = S.who; if (SYNC && S.syncKey && !$('#who-edit').dataset.sure) $('#who-edit').textContent = '로그아웃';
     if (HW && !hs) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
   }
   $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) go(b.dataset.tab); });
@@ -213,7 +213,16 @@
   });
   menu.addEventListener('click', (e) => { const u = e.target.closest('[data-u]'); if (u) { menu.hidden = true; brand.setAttribute('aria-expanded', false); setUnit(+u.dataset.u); return; } const b = e.target.closest('[data-l]'); if (b) { menu.hidden = true; brand.setAttribute('aria-expanded', false); setLesson(+b.dataset.l); } });
   document.addEventListener('click', (e) => { if (!menu.hidden && !e.target.closest('.switch')) { menu.hidden = true; brand.setAttribute('aria-expanded', false); } });
-  $('#who-edit').addEventListener('click', () => {
+  $('#who-edit').addEventListener('click', async () => {
+    if (SYNC && S.syncKey) { // 웹: 「로그아웃」 — 서버에 마저 올리고, 이 기기에서 지운 뒤 코드 입력 화면으로 (다른 아이 코드로 들어갈 때 기록이 섞이지 않게)
+      const btn = $('#who-edit');
+      if (!btn.dataset.sure) { btn.dataset.sure = 1; btn.textContent = '한 번 더 누르면 로그아웃'; setTimeout(() => { delete btn.dataset.sure; btn.textContent = '로그아웃'; }, 3000); return; }
+      btn.textContent = '저장 중…';
+      try { await syncNow(false); } catch (e) {}
+      if ($('#sync-state').dataset.state !== 'ok') { btn.textContent = '로그아웃'; delete btn.dataset.sure; toast('아직 서버에 저장되지 않았어요. 인터넷을 확인하고 다시 눌러 주세요'); return; }
+      try { localStorage.removeItem(KEY); localStorage.removeItem('mallang-naesin:content'); } catch (e) {}
+      location.replace(location.pathname); return;
+    }
     const span = $('#who-name'); const inp = document.createElement('input');
     inp.value = S.who; inp.style.cssText = 'padding:4px 8px;font-size:13px;width:110px';
     span.replaceWith(inp); inp.focus();
