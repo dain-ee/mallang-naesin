@@ -1536,7 +1536,7 @@
   // ───────── 숙제 ─────────
   // content/homework.json 의 요일별 숙제. 해야 할 일마다 앱 기록(S.ws·mem·qa·wrong)으로 끝났는지 스스로 판단합니다.
   const todayKey = () => dayKey(Date.now());
-  const hwAllDays = () => (HW ? [...((HW.school && HW.school.days) || []), ...HW.days] : []); // 학교 프린트 숙제 + 본문·밀린 숙제
+  const hwAllDays = () => (HW ? [...HW.days, ...((HW.school && HW.school.days) || [])] : []); // 학교 프린트 숙제 + 본문·밀린 숙제
   function hwToday() { if (!HW) return null; const t = todayKey(), ds = hwAllDays().filter((d) => d.date === t); return ds.length ? { tasks: ds.flatMap((d) => d.tasks) } : null; }
   function hwCheck(c) {
     if (c.type === 'ws') {
@@ -1658,8 +1658,9 @@
         ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
       </section>`;
     }).join('');
-    if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-days">${dayCards(HW.school.days)}</div><h2 class="route-h hw-group">📖 본문 외우기 · 밀린 숙제</h2>`;
-    html += `<div class="hw-days">${dayCards(HW.days)}</div>`;
+    // 본문 외우기가 제일 먼저 (사용자 2026-10-10: 본문·문법 문제가 최우선, 단어는 이미 앎)
+    html += `<h2 class="route-h hw-group">📖 본문 외우기 · 밀린 숙제</h2><div class="hw-days">${dayCards(HW.days)}</div>`;
+    if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-days">${dayCards(HW.school.days)}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = hwAllDays().find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
     bindPerfBanner();
