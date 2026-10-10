@@ -1592,6 +1592,7 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .jua-heart { position: fixed; z-index: 96; pointer-events: none; font-size: 20px; transform: translate(-50%, -50%); animation: jua-heart 1s ease-out forwards; }
 @keyframes jua-heart { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1); opacity: 0; } }
 .jua-cheer { background: linear-gradient(135deg, #ff8fc0, #c084fc) !important; }
+:root[data-kid="jua"] .brand-chev { display: none; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
