@@ -1668,9 +1668,9 @@
       const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
       const changed = mergeInto(remote);
       localStorage.setItem(KEY, JSON.stringify(S));
+      if (changed && redraw && !document.activeElement.matches('input, textarea')) { const y = scrollY; render(); scrollTo(0, y); } // 받은 기록은 저장(put) 성공 여부와 상관없이 바로 화면에
       if (!TEACHER) { await rpc('naesin_put', { p_student: S.who, p_code: S.syncKey, p_data: shareable() }); syncMark('ok', '☁︎ 저장됨'); }
       else { const t = new Date(); syncMark('ok', `☁︎ ${S.who} 기록 받음 ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`); }
-      if (changed && redraw && !document.activeElement.matches('input, textarea')) { const y = scrollY; render(); scrollTo(0, y); }
     } catch (e) { syncMark('err', '☁︎ 연결 안 됨 (이 기기에는 저장됨)'); }
     syncBusy = false;
   }
