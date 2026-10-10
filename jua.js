@@ -3,6 +3,7 @@
 (() => {
   'use strict';
   const DATA = window.NAESIN, UNITS = DATA.units || [], SYNC = DATA.sync || null, KEY = 'mallang-naesin:v1';
+  const HW = DATA.homework || null, TERMS = DATA.terms || { groups: {}, terms: [] };
   const $ = (s) => document.querySelector(s), main = $('#main');
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // 원래 노트의 채점 기준 그대로 (줄임말·문장부호 차이는 같은 답)
@@ -10,7 +11,10 @@
   let S = {}; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
   S.ans = S.ans || {}; S.log = S.log || [];
   if (!UNITS.find((u) => u.no === S.unit)) S.unit = UNITS.length ? UNITS[UNITS.length - 1].no : 0;
-  if (![2, 3, 4, 'wrong'].includes(S.step)) S.step = 2;
+  S.terms = S.terms || {}; S.seen = S.seen || {};
+  const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  if (HW && HW.days.some((d) => d.date >= todayKey())) S.step = 'hw'; // 숙제가 있으면 숙제부터
+  if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum'].includes(S.step)) S.step = 2;
   let pushT = null;
   const save = (local) => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!local) schedule(); };
 
@@ -31,13 +35,16 @@
   const isWrong = (u, q) => { const r = rec(u, q); return r && r.first === false && !r.fixed; };
   const stat = (u, step) => { const list = qs(u, step); return { n: list.length, ok: list.filter((q) => (rec(u, q) || {}).ok).length }; };
   function side() {
-    $('#nav').innerHTML = UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div>${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : st - 1}</i>${STEP_NAME[st]}<span class="tally" ${s2.n ? '' : 'hidden'}>${s2.ok}/${s2.n}</span></button>`; }).join('')}</div>`).join('') +
+    const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
+    $('#nav').innerHTML = (HW ? `<button class="nav-item ${S.step === 'hw' ? 'is-on' : ''}" data-st="hw" type="button"><i class="ni">✎</i>숙제<span class="tally" ${left ? '' : 'hidden'}>${left}</span></button>` : '') +
+      `<button class="nav-item ${S.step === 'terms' ? 'is-on' : ''}" data-st="terms" type="button"><i class="ni">🚌</i>셔틀 카드</button><button class="nav-item ${S.step === 'sum' ? 'is-on' : ''}" data-st="sum" type="button"><i class="ni">📄</i>한 장 요약</button>` +
+      UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div>${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : st - 1}</i>${STEP_NAME[st]}<span class="tally" ${s2.n ? '' : 'hidden'}>${s2.ok}/${s2.n}</span></button>`; }).join('')}</div>`).join('') +
       `<button class="nav-item ${S.step === 'wrong' ? 'is-on' : ''}" data-st="wrong" type="button"><i class="ni">✕</i>틀린 문제 다시<span class="tally" ${wrongAll() ? '' : 'hidden'}>${wrongAll()}</span></button>`;
     $('#who-name').textContent = S.who || '주아';
     $('#who-edit').textContent = '로그아웃';
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0);
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; if (b.dataset.u) S.unit = +b.dataset.u; S.step = b.dataset.st === 'wrong' ? 'wrong' : +b.dataset.st; save(true); render(); scrollTo(0, 0); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; save(true); render(); scrollTo(0, 0); });
 
   // ── 효과: 하트 콘페티 · 딩 소리 · 연속 정답
   let combo = 0, audio = null;
@@ -66,9 +73,62 @@
     else combo = 0;
   }
 
+  // ── 숙제
+  function check(c) {
+    if (c.type === 'step') { const u = UNITS.find((x) => x.no === c.unit), list = u ? qs(u, c.step) : [], done = list.filter((q) => rec(u, q)).length, ok = list.filter((q) => (rec(u, q) || {}).ok).length; return { ok: list.length > 0 && done >= list.length, txt: `${done}/${list.length}문제 풂 · ${ok}개 맞힘` }; }
+    if (c.type === 'wrong') { const n = wrongAll(); return { ok: n === 0, txt: n ? `틀린 문제 ${n}개 남음` : '틀린 문제 0개' }; }
+    if (c.type === 'termsRead') return { ok: !!S.seen.terms, txt: S.seen.terms ? '다 훑어봤어요' : '아직' };
+    if (c.type === 'termsQuiz') { const n = TERMS.terms.filter((t) => (S.terms[t.id] || {}).ok).length; return { ok: n >= TERMS.terms.length, txt: `${n}/${TERMS.terms.length}개 맞힘` }; }
+    if (c.type === 'seen') return { ok: !!S.seen[c.key], txt: S.seen[c.key] ? '봤어요' : '아직' };
+    return { ok: false, txt: '' };
+  }
+  const dayOf = (t) => HW.days.find((d) => d.tasks.includes(t));
+  const taskOk = (t) => t.checks.every((c) => check(c).ok) && (!t.checks.some((c) => c.type === 'wrong') || ((o) => o.length > 0 && o.every((x) => x.checks.every((c) => check(c).ok)))(dayOf(t).tasks.filter((x) => x !== t)));
+  function hwView() {
+    const t = todayKey();
+    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">🎀 ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1><p>하루치씩 차근차근! 다 하면 왕관이 반짝여요 👑</p></div><span class="jua-crown">👑</span></section><div class="hw-days">` +
+      HW.days.map((d) => { const okN = d.tasks.filter(taskOk).length, all = okN === d.tasks.length;
+        return `<section class="card hw-day ${all ? 'done' : ''} ${d.date === t ? 'today' : ''}"><div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${d.date === t ? '<span class="badge ok">오늘</span>' : ''}<div class="hw-goal">${esc(d.goal)}</div></div><div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>
+          <div class="hw-tasks">${d.tasks.map((tk, i) => { const ok = taskOk(tk); return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '♡' : i + 1}</span><span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(tk.checks.map((c) => check(c).txt).join(' · '))}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
+          ${all ? '<div class="hw-done"><b>👑 오늘 숙제 끝! 최고야 💖</b></div>' : ''}</section>`; }).join('') + '</div>';
+    main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const tk = HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i], g = tk.go || {}; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; save(true); render(); scrollTo(0, 0); }));
+  }
+  // ── 셔틀 카드: 학원 시험에 나오는 영어 용어·지시문 ↔ 한국말
+  const UI = { tmode: 'read' };
+  function termsView() {
+    const tabs = `<div class="seg"><button type="button" data-tm="read" class="${UI.tmode === 'read' ? 'on' : ''}">쭉 훑어보기</button><button type="button" data-tm="quiz" class="${UI.tmode === 'quiz' ? 'on' : ''}">맞추기</button></div>`;
+    let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">🚌 셔틀에서 5분</p><h1>영어로 나와도 당황 금지!</h1><p>negative = 부정문, past continuous = 과거진행형 — 아는 거 영어 이름만 익혀요</p></div><span class="jua-crown">👑</span></section><div class="bar-row">${tabs}</div>`;
+    if (UI.tmode === 'read') {
+      html += Object.entries(TERMS.groups).map(([g, name]) => `<div class="card jua-sec"><h2>${esc(name)}</h2><div class="jua-terms">${TERMS.terms.filter((x) => x.kind === g).map((x) => `<div class="jua-term"><b>${esc(x.en)}</b><span>${esc(x.ko)}</span>${x.ex ? `<em>${esc(x.ex)}</em>` : ''}</div>`).join('')}</div></div>`).join('') +
+        `<div class="sc-foot"><span></span><button class="btn ok" data-tread type="button">${S.seen.terms ? '다 봤어요 ♡' : '다 훑어봤어요 ✓'}</button></div>`;
+      main.innerHTML = html;
+      main.querySelector('[data-tread]').onclick = (e) => { S.seen.terms = Date.now(); save(); cheer('💖 셔틀 카드 완료!'); hearts(e.target, 20); UI.tmode = 'quiz'; render(); scrollTo(0, 0); };
+    } else {
+      const left = TERMS.terms.filter((x) => !(S.terms[x.id] || {}).ok), cur = left[0], n = TERMS.terms.length - left.length;
+      html += `<div class="card jua-sec"><h2>영어 용어 보고 한국말 고르기 · ${n}/${TERMS.terms.length}</h2>` + (!cur ? '<div class="empty">다 맞혔어요! 이제 영어로 나와도 문제없어 👑</div>' :
+        `<div class="mt-q jua-tq">${esc(cur.en)}</div><div class="jua-ops jua-tops">${shuffle([cur, ...shuffle(TERMS.terms.filter((x) => x.id !== cur.id && x.kind === cur.kind)).slice(0, 3)]).map((x) => `<button class="chip jua-op" data-tq="${x.id}" type="button">${esc(x.ko)}</button>`).join('')}</div>`) +
+        `<div class="sc-foot"><span></span><button class="link" data-treset type="button">처음부터 다시</button></div></div>`;
+      main.innerHTML = html;
+      main.querySelectorAll('[data-tq]').forEach((b) => (b.onclick = () => { const ok = b.dataset.tq === cur.id; S.terms[cur.id] = { ok: ok ? 1 : 0, at: Date.now() }; save(); react(ok, b); if (ok) setTimeout(() => { render(); if (!TERMS.terms.some((x) => !(S.terms[x.id] || {}).ok)) cheer('👑 용어 다 맞힘!'); }, 450); }));
+      const rs = main.querySelector('[data-treset]'); if (rs) rs.onclick = () => { S.terms = {}; save(); render(); };
+    }
+    main.querySelectorAll('[data-tm]').forEach((b) => (b.onclick = () => { UI.tmode = b.dataset.tm; render(); }));
+  }
+  function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  // ── 한 장 요약: 과별 설명 표만 모아서
+  function sumView() {
+    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📄 시험 직전 한 장</p><h1>9과 · 10과 한 장 요약</h1><p>표만 쓱 보고 가요</p></div><span class="jua-crown">👑</span></section>` +
+      UNITS.map((u) => `<div class="jua-lesson">${u.lessons[2] || ''}</div>`).join('') +
+      `<div class="sc-foot"><span></span><button class="btn ok" data-sumok type="button">${S.seen.sum ? '봤어요 ♡' : '다 봤어요 ✓'}</button></div>`;
+    main.querySelector('[data-sumok]').onclick = (e) => { S.seen.sum = Date.now(); save(); hearts(e.target, 18); cheer('💖 한 장 요약 완료!'); };
+  }
+
   // ── 화면
   function render() {
     side();
+    if (S.step === 'hw' && HW) { hwView(); return; }
+    if (S.step === 'terms') { termsView(); return; }
+    if (S.step === 'sum') { sumView(); return; }
     const u = UNITS.find((x) => x.no === S.unit);
     if (!u) { main.innerHTML = '<div class="empty">아직 문법 노트가 없어요.</div>'; return; }
     if (S.step === 'wrong') {
@@ -140,6 +200,8 @@
   function merge(sd) {
     if (!sd) return false; const before = JSON.stringify(S);
     for (const k in sd.ans || {}) if (!S.ans[k] || (sd.ans[k].at || 0) > (S.ans[k].at || 0)) S.ans[k] = sd.ans[k];
+    S.terms = S.terms || {}; for (const k in sd.terms || {}) if (!S.terms[k] || (sd.terms[k].at || 0) > (S.terms[k].at || 0)) S.terms[k] = sd.terms[k];
+    S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
     return JSON.stringify(S) !== before;
   }
