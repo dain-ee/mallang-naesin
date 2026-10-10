@@ -1611,7 +1611,7 @@
     if (changed) save();
   }
   const hwTaskOk = (t) => t.checks.every((c) => hwCheck(c).ok) &&
-    (!t.checks.some((c) => c.type === 'wrongClear') || hwDayOf(t).tasks.filter((x) => x !== t && !x.checks.some((c) => c.type === 'wrongClear')).every((x) => x.checks.every((c) => hwCheck(c).ok)));
+    (!t.checks.some((c) => c.type === 'wrongClear') || ((others) => others.length > 0 && others.every((x) => x.checks.every((c) => hwCheck(c).ok)))(hwDayOf(t).tasks.filter((x) => x !== t && !x.checks.some((c) => c.type === 'wrongClear'))));
   function hwGo(t) {
     let g = t.go || {};
     S.subj = g.subj === 'hist' ? 'hist' : 'en';
@@ -1642,7 +1642,7 @@
     hwAllDays().filter((d) => d.date <= todayKey()).forEach(hwEnsurePicks); // 오늘(과 지난) 숙제는 문제를 미리 뽑아 고정
     const t = todayKey(), due = new Date(HW.due + 'T00:00:00'), dd = Math.round((due - new Date(t + 'T00:00:00')) / 864e5);
     let justDone = null;
-    hwAllDays().forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
+    if (!SYNC || !S.syncKey || synced) hwAllDays().forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } }); // 서버 기록을 받기 전에는 '완료'를 찍지 않음
     if (justDone && !TEACHER) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
     let html = perfBanner() + `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
       <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
@@ -1861,7 +1861,7 @@
     document.body.prepend(d);
     try { d.querySelector('#move-go').href = await handoffLink(); } catch { d.querySelector('#move-go').href = NEW_HOME; }
   }, 300);
-  let pushT = null, syncBusy = false;
+  let pushT = null, syncBusy = false, synced = false;
   function syncMark(state, txt) { const el = document.getElementById('sync-state'); if (el) { el.dataset.state = state; el.textContent = txt; } }
   async function rpc(fn, body) {
     const ac = new AbortController(); setTimeout(() => ac.abort(), 10000); // 서버가 막히거나 느려도 멈추지 않게
@@ -1876,7 +1876,7 @@
     syncBusy = true; syncMark('busy', '☁︎ 맞추는 중…');
     try {
       const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
-      const changed = mergeInto(remote);
+      const changed = mergeInto(remote); synced = true;
       localStorage.setItem(KEY, JSON.stringify(S));
       if (changed && redraw && !document.activeElement.matches('input, textarea')) { const y = scrollY; render(); scrollTo(0, y); } // 받은 기록은 저장(put) 성공 여부와 상관없이 바로 화면에
       if (!TEACHER) { await rpc('naesin_put', { p_student: S.who, p_code: S.syncKey, p_data: shareable() }); syncMark('ok', '☁︎ 저장됨'); }
