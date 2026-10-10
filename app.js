@@ -1580,7 +1580,7 @@
     if (c.type === 'match') {
       const L = LESSONS.find((l) => l.no === c.lesson), n = L ? matchPairs(L, c.kind).length : 0;
       const ok = Array.from({ length: n }, (_, i) => ((S.mt || {})[`mt:${c.lesson}:${c.kind}:${i}`] || {}).ok).filter(Boolean).length;
-      const need = Math.min(c.min || n, n); return { ok: n > 0 && ok >= need, txt: `${ok}/${need}개 맞힘` };
+      const need = Math.min(c.min || n, n); return { ok: n > 0 && ok >= need, txt: `${Math.min(ok, need)}/${need}개 맞힘${ok > need ? ` · 전체 ${n}개 중 ${ok}개 맞힘` : ''}` };
     }
     if (c.type === 'pickSet') {
       const keys = ((S.hwSets || {})[c.id] || null) && S.hwSets[c.id].filter((k) => { const x = qByKey(k); return x && !hideQ(x.q); }); // 범위 밖으로 숨긴 문제는 빼고 셈
