@@ -540,7 +540,8 @@
     return b.ans.some((a) => sameSentence(a, v) || (/[가-힣]/.test(a) ? false : wrOk(v, a)));
   }
   function scWriteFb(b, v) {
-    if (scWriteOk(b, v)) return `<b class="ok">맞았어요! ✓</b>${b.ans.length > 1 || /[\[(]/.test(b.ans[0]) ? ` <span class="hint">정답: ${esc(b.ans[0])}</span>` : ''}`;
+    const pretty = (x) => x.replace(/([A-Za-z]+)\[([^\]]+)\]/g, (m, w, alt) => [w, ...alt.split(/[\/,]/)].join('/')); // that[which] → that/which
+    if (scWriteOk(b, v)) return `<b class="ok">맞았어요! ✓</b>${b.ans.length > 1 || /[\[(]/.test(b.ans[0]) ? ` <span class="hint">이렇게도 써요: ${esc(pretty(b.ans[0]))}</span>` : ''}`;
     if (b.keys) return `<span class="hint">빠진 말: ${esc(b.keys.filter((w) => !v.replace(/\s/g, '').includes(w)).join(', '))}</span><div class="hint">선생님 답: ${esc(b.ans[0])}</div>`;
     // 여러 정답 중 내가 쓴 것과 가장 가까운 문장으로 비교 — 정답 줄은 하나만
     const cands = b.ans.flatMap(variants), near = (x) => { const A = norm(v).split(' '), B = norm(x).split(' '); return lcsDiff(A, B).filter(([k]) => k === 'ok').length - Math.abs(A.length - B.length) / 2; };
