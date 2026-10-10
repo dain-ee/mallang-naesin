@@ -543,8 +543,8 @@
     const out = []; let i = 0, j = 0;
     while (i < n || j < m) {
       if (i < n && j < m && a[i] === b[j]) { out.push(esc(mr[i])); i++; j++; }
-      else if (j < m && (i >= n || dp[i][j + 1] >= dp[i + 1][j])) { out.push(`<span class="add">＋${esc(ar[j])}</span>`); j++; }
-      else { out.push(`<span class="bad">${esc(mr[i])}</span>`); i++; }
+      else if (i < n && (j >= m || dp[i + 1][j] >= dp[i][j + 1])) { out.push(`<span class="bad">${esc(mr[i])}</span>`); i++; } // 잘못 쓴 말 먼저, 그 뒤에 고칠 말
+      else { out.push(`<span class="add">＋${esc(ar[j])}</span>`); j++; }
     }
     return `<div class="mine">${out.join(' ')}</div><div class="hint">정답: ${esc(en)}</div>`;
   }
