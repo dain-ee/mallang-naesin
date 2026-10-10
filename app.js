@@ -319,7 +319,7 @@
     const pi = Math.min(UI.spage || 0, SC.pages.length - 1), pg = SC.pages[pi];
     const tabs = `<div class="sc-pages">${SC.pages.map((p, i) => { const st = scPageStat(L, p); const cls = st.n && st.ok === st.n ? 'all' : st.done ? 'some' : ''; return `<button type="button" class="sc-pg ${i === pi ? 'on' : ''} ${cls}" data-sp="${i}">${p.no}</button>`; }).join('')}</div>`;
     const st = scPageStat(L, pg);
-    let html = head(`학교 프린트 · ${L.no}과`, `${esc(SC.school)} 선생님 프린트 그대로 — ${SC.pages.length}쪽`) + tabs +
+    let html = head(`학교 프린트 · ${L.no}과`, `${esc(SC.school)} 선생님 프린트 그대로 — ${SC.pages.length}쪽`) + tabs + (SC.missing ? `<div class="hw-banner">📷 아직 사진이 없는 쪽: ${esc(SC.missing.join(', '))}</div>` : '') +
       `<div class="bar-row"><b class="sc-title">${pg.no}. ${esc(pg.title)}</b><span class="grow"></span>${st.n ? `<span class="badge ok">${st.ok} / ${st.n} 맞힘</span> <button class="link" id="sc-reset" type="button">이 쪽 다시 풀기</button>` : ''}</div><div class="sc-body">`;
     pg.blocks.forEach((b, bi) => {
       const k = scKey(L, pg, bi), r = S.sch[k];
