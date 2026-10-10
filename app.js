@@ -11,6 +11,7 @@
   const EXAMS = DATA.exams || [];
   const HIST = DATA.history || null; // 역사 (단원·용어·흐름·문제)
   const HUNITS = HIST ? HIST.units : [], HEXAMS = HIST ? HIST.exams || [] : [];
+  const PERF = DATA.perf || null; // 수행평가 원고 — 홈·숙제 맨 위 배너
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
   // 문제 키 → 문제. 'ex:시험지:번호' 는 기출 시험지, '과:번호' 는 직접 만든 문제.
   function qByKey(k) {
@@ -189,7 +190,7 @@
     const navKey = (hs ? 'h' : 'e') + (HW && !hs ? 1 : 0);
     if ($('#nav').dataset.k !== navKey) {
       $('#nav').dataset.k = navKey;
-      $('#nav').innerHTML = (hs ? '' : `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>`) +
+      $('#nav').innerHTML = (hs ? '' : `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>` + (PERF ? `<button class="nav-item" data-tab="perf" type="button"><i class="ni">✍</i>수행평가</button>` : '')) +
         NAV[hs ? 'hist' : 'en'].map(([t, i, n]) => `<button class="nav-item" data-tab="${t}" type="button"><i class="ni">${i}</i>${n}</button>`).join('') +
         `<button class="nav-item" data-tab="wrong" type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button><button class="nav-item" data-tab="log" type="button"><i class="ni">✓</i>기록</button>`;
     }
@@ -249,7 +250,7 @@
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
       const L = lesson();
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
-      ({ hw: hwView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
+      ({ hw: hwView, perf, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
     const view = `${S.subj}:${isHist() ? S.hunit : S.lesson}:${S.tab}`;
     if (view !== lastView) { lastView = view; main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter'); }
@@ -273,6 +274,34 @@
     render();
   });
 
+
+  // ───────── 수행평가 원고 ─────────
+  const perfItems = () => PERF.sents.map((x, i) => ({ id: `pf:${i}`, en: x.en, ko: x.ko, group: '수행평가 원고', sp: `${i + 1}` }));
+  function perfBanner() {
+    if (!PERF || isHist()) return '';
+    const t = new Date(todayKey() + 'T00:00:00'), it = perfItems(), m = memCount(it);
+    const dd = PERF.dates.map((d) => { const n = Math.round((new Date(d.date + 'T00:00:00') - t) / 864e5); return `${d.label} ${n > 0 ? `D-${n}` : n === 0 ? '오늘!' : '끝'}`; }).join(' · ');
+    return `<button class="perf-banner" data-perf type="button"><span class="perf-eyebrow">📝 수행평가 · ${esc(dd)}</span><b>${esc(PERF.title)}</b><span class="perf-sub">원고 ${PERF.sents.length}문장 외우기 — ${m}/${it.length} 외움</span><span class="perf-go">외우러 가기 ›</span></button>`;
+  }
+  function bindPerfBanner() { main.querySelectorAll('[data-perf]').forEach((b) => (b.onclick = () => go('perf'))); }
+  function perf() {
+    if (!PERF) { S.tab = 'home'; render(); return; }
+    const it = perfItems();
+    UI.perfMode = UI.perfMode || 'view';
+    const tabs = seg('perfMode', [['view', '원고 보기'], ['drill', '외우기 연습']], UI.perfMode);
+    const html = head(`수행평가 · ${esc(PERF.title)}`, esc(PERF.sub), tabs);
+    if (UI.perfMode === 'view') {
+      main.innerHTML = html + `<section class="card perf-card"><h3>원고 (한 문단)</h3><div class="perf-para">${esc(PERF.para)}</div></section>
+        <section class="card perf-card"><h3>문장별 · 해석</h3><ol class="perf-list">${PERF.sents.map((x) => `<li><span class="en">${esc(x.en)}</span><span class="ko"><b>${esc(x.tag)}</b> · ${esc(x.ko)}</span></li>`).join('')}</ol></section>
+        <section class="card perf-card"><h3>외울 단어</h3><div class="perf-voc">${PERF.voc.map(([e, k]) => `<span><b>${esc(e)}</b> ${esc(k)}</span>`).join('')}</div></section>
+        <div class="sc-foot"><span></span><button class="btn ok" data-pm="drill" type="button">외우기 연습 →</button></div>`;
+      main.querySelectorAll('[data-pm]').forEach((b) => (b.onclick = () => { UI.perfMode = b.dataset.pm; render(); scrollTo(0, 0); }));
+      return;
+    }
+    main.innerHTML = html + drill(it);
+    bindDrill(it);
+  }
+
   // ───────── 단원 홈 ─────────
   function home(L) {
     const ws = wordsOf(L), wk = ws.filter((w) => S.known[wid(L, w)]).length;
@@ -285,7 +314,7 @@
         <span class="route-prog"><span class="bar"><span style="width:${pct(a, b)}%"></span></span><span class="route-m">${a} / ${b}${unit}</span></span>
         <span class="route-go" aria-hidden="true">›</span>
       </button>`;
-    main.innerHTML = `
+    main.innerHTML = perfBanner() + `
       <nav class="lesson-tabs" aria-label="단원">${LESSONS.map((l) => `<button class="ltab ${l.no === L.no ? 'on' : ''}" data-l="${l.no}" type="button"><b>${l.no}과</b><span>${esc(l.title)}</span></button>`).join('')}</nav>
       <section class="banner"><div><h1>Lesson ${L.no}. ${esc(L.title)}</h1><p>본문 「${esc(L.readingTitle)}」</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
@@ -298,6 +327,7 @@
       </div>`;
     main.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(b.dataset.go)));
     main.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => setLesson(+b.dataset.l)));
+    bindPerfBanner();
   }
 
   // ───────── 단어 ─────────
@@ -1138,8 +1168,7 @@
       const it = qByKey(key) || {};
       logEv(/^h?x:|^ex:/.test(key) ? '기출 시험지' : '실전 문제', r.ok ? 1 : 0, 1, it.src ? `${it.src} ${+key.split(':')[2] + 1}번` : it.hist ? `${it.lab} ${+key.split(':')[2] + 1}번` : `${key.split(':')[0]}과 ${+key.split(':')[1] + 1}번`);
       fxAfter(r.ok, r.ok ? '.q-card .choice.right, .q-card .verdict' : '.q-card .choice.wrong, .q-card .verdict');
-      if (!r.ok) S.wrong[key] = 0;
-      else if (key in S.wrong) { S.wrong[key]++; if (S.wrong[key] >= 2) delete S.wrong[key]; }
+      if (!r.ok) S.wrong[key] = 0; // 오답노트에서 빠지는 건 오답노트 안에서 두 번 연속 맞혔을 때만
       save(); done(r);
     };
     main.querySelectorAll('.q-card .choice[data-k]').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; record({ pick: k, ok: k === q.answer }); }));
@@ -1444,7 +1473,7 @@
     let justDone = null;
     HW.days.forEach((d) => { if (d.tasks.every(hwTaskOk) && !S.hwDone[d.id]) { S.hwDone[d.id] = Date.now(); justDone = d; } });
     if (justDone && !TEACHER) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
-    let html = `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
+    let html = perfBanner() + `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
       <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
     html += `<div class="hw-days">${HW.days.map((d) => {
       const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t;
@@ -1460,6 +1489,7 @@
     }).join('')}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = HW.days.find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
+    bindPerfBanner();
     main.querySelectorAll('[data-notify]').forEach((b) => (b.onclick = async () => {
       const d = HW.days.find((x) => x.id === b.dataset.notify), msg = hwMessage(d), ta = main.querySelector(`[data-msg="${d.id}"]`);
       ta.value = msg; ta.hidden = false;
@@ -1525,14 +1555,20 @@
   // 오답 키 — 역사는 'h:' / 'hx:' 로 시작합니다.
   const wrongKeys = () => Object.keys(S.wrong).filter((k) => /^hx?:/.test(k) === isHist());
   function wrong() {
-    const keys = wrongKeys();
-    const items = keys.map(qByKey).filter(Boolean);
     if (!UI.wrongPicks) UI.wrongPicks = {};
+    if (!UI.wrongSeen) UI.wrongSeen = []; // 이번에 오답노트에서 푼 문제 — 빠져도 이 화면에서는 「빠짐」으로 남겨 둠
+    const keys = [...new Set([...wrongKeys(), ...UI.wrongSeen.filter((k) => /^hx?:/.test(k) === isHist())])];
+    const items = keys.map(qByKey).filter(Boolean);
     let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 두 번 연속 맞히면 빠져요.`);
     if (!items.length) { main.innerHTML = html + `<div class="empty">아직 틀린 문제가 없어요 👻</div>`; return; }
-    html += `<div class="qwrap list">${items.map((it, n) => `<div data-wk="${it.key}">${questionCard(it, UI.wrongPicks[it.key], n + 1)}${UI.wrongPicks[it.key] ? `<div class="hint" style="margin:6px 4px 0">연속 정답 ${S.wrong[it.key] ?? 2} / 2</div>` : ''}</div>`).join('')}</div>`;
+    const streak = (k) => (k in S.wrong ? S.wrong[k] : 2);
+    html += `<div class="qwrap list">${items.map((it, n) => { const p = UI.wrongPicks[it.key], st = streak(it.key);
+      const info = st >= 2 ? '<b class="ok">✓ 두 번 연속 맞혀서 오답노트에서 빠졌어요</b>' : p ? `연속 정답 ${st} / 2 ${p.ok ? '— 한 번 더 맞히면 빠져요' : '— 틀려서 0부터 다시'} <button class="link" data-wredo="${it.key}" type="button">다시 풀기</button>` : `연속 정답 ${st} / 2`;
+      return `<div data-wk="${it.key}">${questionCard(it, p, n + 1)}<div class="hint" style="margin:6px 4px 0">${info}</div></div>`; }).join('')}</div>`;
     main.innerHTML = html;
+    main.querySelectorAll('[data-wredo]').forEach((b) => (b.onclick = () => { delete UI.wrongPicks[b.dataset.wredo]; const y = scrollY; render(); scrollTo(0, y); }));
     items.forEach((it) => {
+      if (!UI.wrongSeen.includes(it.key) && it.key in S.wrong) UI.wrongSeen.push(it.key);
       const box = main.querySelector(`[data-wk="${it.key}"]`);
       box.querySelectorAll('.choice[data-k]').forEach((b) => (b.onclick = () => {
         const k = +b.dataset.k, ok = k === it.q.answer;

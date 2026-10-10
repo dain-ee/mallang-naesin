@@ -1477,6 +1477,26 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .choice.sel { border-color: var(--accent); background: var(--accent-soft); }
 .sc-foot { display: flex; justify-content: space-between; margin: 22px 0 8px; }
 
+/* ───────── 수행평가 배너·원고 ───────── */
+.perf-banner { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; width: 100%; margin: 0 0 16px; padding: 18px 22px; text-align: left; color: #fff; background: linear-gradient(120deg, #f4705f, #f59e8b); border: 0; border-radius: 20px; box-shadow: 0 10px 24px -14px rgba(244, 112, 95, .8); cursor: pointer; }
+.perf-banner b { grid-column: 1; font-size: 22px; font-weight: 800; }
+.perf-eyebrow { grid-column: 1; font-size: 13px; font-weight: 800; opacity: .92; }
+.perf-sub { grid-column: 1; font-size: 14px; font-weight: 600; opacity: .95; }
+.perf-go { grid-column: 2; grid-row: 1 / span 3; align-self: center; padding: 10px 16px; font-weight: 800; color: #f4705f; background: #fff; border-radius: 12px; white-space: nowrap; }
+.perf-card { padding: 20px 22px; margin-bottom: 14px; }
+.perf-card h3 { margin: 0 0 12px; font-size: 17px; font-weight: 800; }
+.perf-para { padding: 16px 18px; font-size: 17px; line-height: 2; background: var(--accent-soft); border-radius: 14px; }
+.perf-list { margin: 0; padding: 0; list-style: none; counter-reset: n; }
+.perf-list li { counter-increment: n; display: grid; grid-template-columns: 28px 1fr; gap: 2px 8px; padding: 10px 0; border-bottom: 1px dashed var(--line-soft); }
+.perf-list li:last-child { border-bottom: 0; }
+.perf-list li::before { content: counter(n); grid-row: span 2; font-weight: 800; color: var(--accent); }
+.perf-list .en { font-size: 16.5px; font-weight: 700; }
+.perf-list .ko { font-size: 13.5px; color: var(--sub); }
+.perf-voc { display: flex; flex-wrap: wrap; gap: 6px; }
+.perf-voc span { padding: 5px 10px; font-size: 14px; border: 1px solid var(--line); border-radius: 10px; }
+.perf-voc b { color: var(--accent); }
+@media (max-width: 640px) { .perf-banner { grid-template-columns: 1fr; } .perf-go { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; } }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
