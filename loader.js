@@ -2,6 +2,8 @@
    교재·기출 내용은 공개 저장소에 두지 않고 서버(Supabase)에서 받아옵니다. 학생 비밀 코드(k)가 있어야 받을 수 있어요.
    한 번 받은 내용은 이 기기에 넣어 두어서 다음부터는 바로 열립니다. */
 // 앱이 시작하다 멈추면(오류) 유령 화면에 갇히지 않게: 오류 내용과 '정리하고 다시 열기'를 보여 줍니다.
+window.__boot = [];
+function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0) + 's ' + t); } catch (e) {} }
 (function () {
   let shown = false;
   function fail(msg) {
@@ -12,7 +14,9 @@
     d.innerHTML = '<div style="max-width:440px;text-align:center;line-height:1.6"><div style="font-size:40px">👻</div><b style="font-size:18px">앱을 여는 중에 문제가 생겼어요</b>' +
       '<p style="color:#44506b;font-size:14px">아래 버튼을 누르면 이 컴퓨터에 남은 예전 정보만 정리하고 다시 열어요. 공부한 기록은 서버에 있어서 그대로 돌아와요.</p>' +
       '<button id="boot-fix" style="padding:12px 20px;font-size:15px;font-weight:700;color:#fff;background:#4f7cff;border:0;border-radius:12px;cursor:pointer">정리하고 다시 열기</button>' +
-      '<p style="margin-top:18px;font-size:11.5px;color:#7f8aa3;word-break:break-all">오류: ' + String(msg).replace(/[<>&]/g, '') + '</p></div>';
+      '<p style="margin-top:18px;font-size:11.5px;color:#7f8aa3;word-break:break-all">오류: ' + String(msg).replace(/[<>&]/g, '') + '</p>' +
+      '<pre style="text-align:left;font-size:11px;color:#7f8aa3;white-space:pre-wrap;word-break:break-all;background:#eef3fb;border-radius:8px;padding:8px">' +
+      ('주소: ' + location.pathname + location.search.replace(/k=([^&]{4})[^&]*/, 'k=$1…') + '\n' + window.__boot.join('\n') + '\n' + navigator.userAgent).replace(/[<>&]/g, '') + '</pre></div>';
     document.body.appendChild(d);
     document.getElementById('boot-fix').onclick = function () {
       try {
@@ -23,7 +27,9 @@
       location.replace(location.pathname + location.search);
     };
   }
-  window.addEventListener('error', function (e) { fail((e.message || 'error') + ' @' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '')); });
+  // 파일(앱 코드·글꼴 등)을 못 받으면 어느 파일인지 남김
+  window.addEventListener('error', function (e) { const t = e.target; if (t && t !== window && (t.src || t.href)) bootStep('파일 못 받음 ' + (t.src || t.href).split('/').pop()); }, true);
+  window.addEventListener('error', function (e) { if (e.target && e.target !== window) return; fail((e.message || 'error') + ' @' + (e.filename || '').split('/').pop() + ':' + (e.lineno || '')); });
   window.addEventListener('unhandledrejection', function (e) { fail('promise: ' + ((e.reason && e.reason.message) || e.reason)); });
   setTimeout(function () { if (!window.__naesinStarted) fail('시작이 15초 넘게 걸려요 (인터넷이 느리거나 막혔을 수 있어요)'); }, 15000);
 })();
@@ -56,17 +62,19 @@
     return r.json();
   }
   let data = null;
+  bootStep('시작 (코드 ' + (code ? code.slice(0, 4) + '…' + (q.get('k') ? ' 링크' : ' 저장') : '없음') + ')');
   if (!code) { msg('선생님이 보내 준 링크로 열어 주세요.'); return; }
   try {
     let fresh = null;
-    try { fresh = await fetchLocalContent(); } catch (e) { msg('불러오는 중… (다른 길로 시도)'); }
+    try { fresh = await fetchLocalContent(); bootStep('내용 받음(같은 주소)'); } catch (e) { bootStep('같은 주소 실패: ' + e.message); msg('불러오는 중… (다른 길로 시도)'); }
     if (!fresh) fresh = await Promise.race([fetchContent(), new Promise((_, no) => setTimeout(() => no(new Error('server slow')), 8000))]);
-    if (!fresh) { msg('링크가 맞지 않아요. 선생님께 다시 받아 주세요.'); return; }
+    if (!fresh) { bootStep('서버도 내용 없음 → 링크 코드가 틀림'); msg('링크가 맞지 않아요. 선생님께 다시 받아 주세요.'); return; }
     data = fresh; try { localStorage.setItem(CKEY, JSON.stringify(fresh)); } catch {}
   } catch (e) {
+    bootStep('서버 실패: ' + e.message + (cached ? ' → 저장본 사용' : ''));
     if (cached) data = cached; else { msg('인터넷 연결을 확인해 주세요.'); return; }
   }
   data.sync = C;
   window.NAESIN = data;
-  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onload = () => { const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
+  const s = document.createElement('script'); s.src = 'app.js?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onerror = () => bootStep('앱 코드 못 받음'); s.onload = () => { bootStep('앱 코드 받음'); const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
 })();
