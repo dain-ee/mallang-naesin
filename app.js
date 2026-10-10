@@ -165,9 +165,9 @@
   // 5·6과처럼 영어과외TV 공식 단어 목록표가 있으면 그 목록(교과서 단어)을 씁니다. 예문·품사는 만든 자료에서 붙입니다.
   function wordsOf(L) {
     const mine = [...L.words.map((w) => ({ ...w, kind: 'w' })), ...(L.phrases || []).map((w) => ({ ...w, pos: '숙어', kind: 'p' }))];
-    if (!(L.ws && L.ws.source && ['englishtutortv', 'rule', 'official'].includes(L.ws.source.words))) return mine;
+    if (!(L.ws && ((L.ws.source && ['englishtutortv', 'rule', 'official'].includes(L.ws.source.words)) || L.ws.vocab.from))) return mine; // 학교 프린트 단어가 있으면 그것
     const by = Object.fromEntries(mine.map((w) => [norm(w.en), w]));
-    return L.ws.vocab.list.filter((w) => w.core).map((w) => { const m = by[norm(w.en)] || {}; return { en: w.en, ko: w.ko, pos: m.pos || (w.en.includes(' ') ? '숙어' : ''), ex: m.ex, exKo: m.exKo, kind: 'w' }; });
+    return L.ws.vocab.list.filter((w) => w.core).map((w) => { const m = by[norm(w.en)] || {}; return { en: w.en, ko: w.ko, pos: m.pos || (w.en.includes(' ') ? '숙어' : ''), ex: w.ex || m.ex, exKo: w.ex ? w.exKo : m.exKo, kind: 'w' }; });
   }
   const wid = (L, w) => `${L.no}:w:${w.en}`;
 
@@ -909,7 +909,7 @@
     return `<div class="bar-row"><span class="grow"></span>
         <label class="hint"><input type="checkbox" id="core-only" ${UI.coreOnly ? 'checked' : ''} style="width:auto"> 교과서 단어만 (유의어·반의어 빼기)</label></div>` +
       part(`${L.no}:v:A`, 'A', '단어 암기', `<div class="wgrid">${list.map((w) => `<div class="wrow memo wword ${w.core ? '' : 'rel'}"><div class="wbody"><span class="wen">${esc(w.en)}</span> : <span class="wkt">${esc(w.ko)}</span>${w.core ? '' : ' <span class="reltag">관련어</span>'}</div></div>`).join('')}</div>`, { memo: true, sub: `${list.length}개` }) +
-      '' + // B 영영풀이는 선생님 학습지를 받은 뒤에 (지금은 숨김)
+      (v.from ? part(`${L.no}:v:B`, 'B', '영영풀이 (선생님 프린트)', v.enDef.map((d, i) => rowBlank(`${i + 1}.`, `${d.def} : ______`, [d.answer], d.ko)).join('')) : '') + // 영영풀이는 선생님 프린트의 정의만
       part(`${L.no}:v:C`, 'C', '우리말 보고 단어 쓰기', core.map((w, i) => rowBlank(`${i + 1}.`, `${w.ko} : ______`, [w.en])).join('')) +
       part(`${L.no}:v:D`, 'D', '예문 완성하기', v.fill.map((f, i) => rowBlank(`${i + 1}.`, f.q, Array.isArray(f.answer) ? f.answer : [f.answer], f.ko)).join(''));
   }
@@ -1031,7 +1031,7 @@
   // 영영풀이 문제는 선생님 학습지를 받은 뒤에 하기로 해서 지금은 빼 둡니다.
   const isEnDef = (q) => /영영/.test(q.q || '');
   // 숨기는 문제: 시험 범위 밖(q.off — 선생님이 안 다룬 문법) · 선생님 프린트와 다른 영영풀이
-  const hideQ = (q) => !!q.off || (isEnDef(q) && !q.defOk);
+  const hideQ = (q) => !!q.off; // 영영풀이는 선생님 프린트와 다른 정의만 scope.json 에서 off
   function qPool(L) { return qPool0(L).filter(({ q }) => !hideQ(q)); }
   function qPool0(L) {
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean); // 숙제로 고른 문제만
@@ -1374,8 +1374,13 @@
       const n = need.filter((id) => ((S.rev || {})[id] || 0) >= since).length;
       return { ok: need.length > 0 && n >= need.length, txt: need.length ? `${n}/${need.length}문장 복기` : '수업 필기 없음' };
     }
+    if (c.type === 'school') { // 학교 프린트 — 그 쪽들의 문항을 전부 풀면 완료
+      const L = LESSONS.find((l) => l.no === c.lesson), pages = L && L.school ? L.school.pages.filter((p) => c.pages.includes(p.no)) : [];
+      const st = pages.map((p) => scPageStat(L, p)).reduce((a, b) => ({ n: a.n + b.n, ok: a.ok + b.ok, done: a.done + b.done }), { n: 0, ok: 0, done: 0 });
+      return { ok: st.n > 0 && st.done >= st.n, txt: `${st.done}/${st.n}문항 풂 · ${st.ok}개 맞힘` };
+    }
     if (c.type === 'pickSet') {
-      const keys = (S.hwSets || {})[c.id];
+      const keys = ((S.hwSets || {})[c.id] || null) && S.hwSets[c.id].filter((k) => { const x = qByKey(k); return x && !hideQ(x.q); }); // 범위 밖으로 숨긴 문제는 빼고 셈
       if (!keys) return { ok: false, txt: '열면 새 문제 10개를 뽑아요' };
       const done = keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length;
       return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
@@ -1415,6 +1420,7 @@
     ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
     ['words', 'read', 'drill', 'grammar', 'comm'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
+    if (g.spage) { const SL = LESSONS.find((l) => l.no === (g.lesson || S.lesson)); const i = SL && SL.school ? SL.school.pages.findIndex((p) => p.no === g.spage) : -1; if (i >= 0) UI.spage = i; }
     if (g.rpart != null) UI.rpart = g.rpart;
     if (g.pickSet) { hwEnsurePicks(hwDayOf(t)); g = { ...g, quizOnly: (S.hwSets || {})[g.pickSet] || [] }; }
     UI.noteReview = !!g.review;
