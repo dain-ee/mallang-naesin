@@ -1632,10 +1632,11 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .sc-hwb .chip { padding: 4px 10px; font-size: 13px; }
 .sc-hwb .chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
 .sc-hwb .grow { flex: 1; }
-.sc-pg.hw { position: relative; box-shadow: 0 0 0 2px #f59e0b inset; }
-.sc-pg.hw::after { content: "숙제"; position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 0 4px; font-size: 9.5px; font-weight: 800; color: #fff; background: #f59e0b; border-radius: 6px; }
 .sc-pages { padding-top: 8px; }
-.sc-pg.hw::after { white-space: nowrap; }
+/* 숙제인 쪽: 주황 테두리 + 오른쪽 위 작은 점 (숫자를 가리지 않게) */
+.sc-pg.hw { position: relative; border-color: #f59e0b; color: #b45309; background: #fff8eb; }
+.sc-pg.hw.on { color: #fff; background: var(--accent); border-color: #f59e0b; box-shadow: 0 0 0 2px #fcd34d; }
+.sc-pg.hw::after { content: ""; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; background: #f59e0b; border: 2px solid var(--card); border-radius: 50%; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
