@@ -521,8 +521,10 @@
     }
     if (mode === 'cond') { main.innerHTML = html + `<p class="hint" style="margin:0 2px 12px">조건을 꼭 지켜서 써요. that만 쓰기·동사원형만 쓰기로는 안 풀려요.</p>` + condBox(L); scBind(L); return; }
     if (mode === 'mdef') { main.innerHTML = html + matchBox(L, 'def') + matchBox(L, 'ko'); scBind(L); return; }
-    const pi = Math.min(UI.spage || 0, SC.pages.length - 1), pg = SC.pages[pi], st = scPageStat(L, pg);
-    html += `<div class="sc-pages">${SC.pages.map((p, i) => { const s2 = scPageStat(L, p); const cls = s2.n && s2.ok === s2.n ? 'all' : s2.done ? 'some' : ''; return `<button type="button" class="sc-pg ${i === pi ? 'on' : ''} ${cls}" data-sp="${i}">${p.no}</button>`; }).join('')}</div>` +
+    const pi = Math.min(UI.spage || 0, SC.pages.length - 1), pg = SC.pages[pi], st = scPageStat(L, pg), hw = UI.scHw;
+    if (hw) { const tot = scPages(L, hw.pages).map((p) => scPageStat(L, p)).reduce((a, b) => ({ n: a.n + b.n, done: a.done + b.done }), { n: 0, done: 0 });
+      html += `<div class="hw-banner sc-hwb">📌 숙제: ${esc(hw.t)} — ${hw.pages.map((no) => { const j = SC.pages.findIndex((p) => p.no === no); return `<button class="chip ${j === pi ? 'on' : ''}" data-sp="${j}" type="button">${no}쪽</button>`; }).join(' ')} <span class="grow"></span><b>${tot.done}/${tot.n}문항</b> <button class="link" id="sc-hwoff" type="button">숙제 표시 끄기</button></div>`; }
+    html += `<div class="sc-pages">${SC.pages.map((p, i) => { const s2 = scPageStat(L, p); const cls = s2.n && s2.ok === s2.n ? 'all' : s2.done ? 'some' : ''; return `<button type="button" class="sc-pg ${i === pi ? 'on' : ''} ${cls} ${hw && hw.pages.includes(p.no) ? 'hw' : ''}" data-sp="${i}">${p.no}</button>`; }).join('')}</div>` +
       (SC.missing ? `<div class="hw-banner">📷 아직 사진이 없는 쪽: ${esc(SC.missing.join(', '))}</div>` : '') +
       `<div class="bar-row"><b class="sc-title">${pg.no}. ${esc(pg.title)}</b><span class="grow"></span>${st.n ? `<span class="badge ok">${st.ok} / ${st.n} 맞힘</span> <button class="link" id="sc-reset" type="button">이 쪽 다시 풀기</button>` : ''}</div><div class="sc-body">` +
       scPagesHtml(L, [pg], { titles: false }) +
@@ -530,6 +532,7 @@
     main.innerHTML = html;
     main.querySelectorAll('[data-sp]').forEach((b) => (b.onclick = () => { UI.spage = +b.dataset.sp; render(); scrollTo(0, 0); }));
     const rs = $('#sc-reset'); if (rs) rs.onclick = () => { pg.blocks.forEach((_, bi) => delete S.sch[scKey(L, pg, bi)]); save(); render(); };
+    const ho = $('#sc-hwoff'); if (ho) ho.onclick = () => { UI.scHw = null; render(); };
     scBind(L);
   }
   function scWriteOk(b, v) {
@@ -1620,7 +1623,14 @@
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
     ['words', 'read', 'drill', 'grammar', 'comm'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     ['scMode', 'scGroup'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
-    if (g.spage) { const SL = LESSONS.find((l) => l.no === (g.lesson || S.lesson)); const i = SL && SL.school ? SL.school.pages.findIndex((p) => p.no === g.spage) : -1; if (i >= 0) UI.spage = i; }
+    UI.scHw = null;
+    if (g.spage) {
+      const SL = LESSONS.find((l) => l.no === (g.lesson || S.lesson)), pages = (t.checks.find((c) => c.type === 'school') || {}).pages || [g.spage];
+      // 숙제인 쪽 중 아직 안 푼 문제가 있는 쪽부터 (설명만 있는 쪽은 건너뜀)
+      const first = pages.find((no) => { const pg = SL.school.pages.find((p) => p.no === no), st = pg && scPageStat(SL, pg); return st && st.n && st.done < st.n; }) || pages.find((no) => { const pg = SL.school.pages.find((p) => p.no === no); return pg && scPageStat(SL, pg).n; }) || pages[0];
+      const i = SL && SL.school ? SL.school.pages.findIndex((p) => p.no === first) : -1; if (i >= 0) UI.spage = i;
+      UI.scHw = { t: t.t, pages };
+    }
     if (g.rpart != null) UI.rpart = g.rpart;
     if (g.pickSet) { hwEnsurePicks(hwDayOf(t)); g = { ...g, quizOnly: (S.hwSets || {})[g.pickSet] || [] }; }
     UI.noteReview = !!g.review;

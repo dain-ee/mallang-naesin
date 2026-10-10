@@ -1628,6 +1628,13 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
   .jua-li { gap: 10px; }
   .jua-line { flex-wrap: nowrap; }
 }
+.sc-hwb { flex-wrap: wrap; }
+.sc-hwb .chip { padding: 4px 10px; font-size: 13px; }
+.sc-hwb .chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.sc-hwb .grow { flex: 1; }
+.sc-pg.hw { position: relative; box-shadow: 0 0 0 2px #f59e0b inset; }
+.sc-pg.hw::after { content: "숙제"; position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 0 4px; font-size: 9.5px; font-weight: 800; color: #fff; background: #f59e0b; border-radius: 6px; }
+.sc-pages { padding-top: 8px; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
