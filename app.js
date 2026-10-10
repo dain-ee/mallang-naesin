@@ -420,8 +420,9 @@
   function scWriteFb(b, v) {
     if (scWriteOk(b, v)) return `<b class="ok">맞았어요! ✓</b>${b.ans.length > 1 || /[\[(]/.test(b.ans[0]) ? ` <span class="hint">정답: ${esc(b.ans[0])}</span>` : ''}`;
     if (b.keys) return `<span class="hint">빠진 말: ${esc(b.keys.filter((w) => !v.replace(/\s/g, '').includes(w)).join(', '))}</span><div class="hint">선생님 답: ${esc(b.ans[0])}</div>`;
-    const plain = variants(b.ans[0])[0];
-    return wrDiff(v, plain).replace(/<div class="hint">원문: .*<\/div>$/, '') + `<div class="hint">정답: ${esc(b.ans[0])}</div>`;
+    // 여러 정답 중 내가 쓴 것과 가장 가까운 문장으로 비교 — 정답 줄은 하나만
+    const cands = b.ans.flatMap(variants), near = (x) => { const A = norm(v).split(' '), B = norm(x).split(' '); return lcsDiff(A, B).filter(([k]) => k === 'ok').length - Math.abs(A.length - B.length) / 2; };
+    return wrDiff(v, cands.sort((x, y) => near(y) - near(x))[0]);
   }
 
   function words(L) {
@@ -532,9 +533,20 @@
     });
   }
   const wrOk = (v, en) => lcsDiff(norm(v).split(' ').filter(Boolean), norm(en).split(' ')).every(([k]) => k === 'ok') || sameSentence(v, en);
+  // 채점 결과 — 내가 쓴 문장을 그대로 보여 주고, 틀린 말은 빨간 줄, 빠진 말은 초록 ＋로 끼워 넣음 (소문자로 바꾼 줄은 안 보여 줌)
   function wrDiff(v, en) {
-    const ok = wrOk(v, en), d = lcsDiff(norm(v).split(' ').filter(Boolean), norm(en).split(' '));
-    return (ok ? '<b class="ok">완벽해요! ✓</b> ' : '') + d.map(([k, w]) => `<span class="${k}">${esc(w)}</span>`).join(' ') + (ok ? '' : `<div class="hint">원문: ${esc(en)}</div>`);
+    if (wrOk(v, en)) return '<b class="ok">완벽해요! ✓</b>';
+    const mr = v.trim().split(/\s+/).filter((t) => norm(t)), ar = en.split(/\s+/).filter((t) => norm(t));
+    const a = mr.map(norm), b = ar.map(norm), n = a.length, m = b.length;
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    const out = []; let i = 0, j = 0;
+    while (i < n || j < m) {
+      if (i < n && j < m && a[i] === b[j]) { out.push(esc(mr[i])); i++; j++; }
+      else if (j < m && (i >= n || dp[i][j + 1] >= dp[i + 1][j])) { out.push(`<span class="add">＋${esc(ar[j])}</span>`); j++; }
+      else { out.push(`<span class="bad">${esc(mr[i])}</span>`); i++; }
+    }
+    return `<div class="mine">${out.join(' ')}</div><div class="hint">정답: ${esc(en)}</div>`;
   }
   function lcsDiff(mine, ans) {
     const a = mine, b = ans, n = a.length, m = b.length, dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));

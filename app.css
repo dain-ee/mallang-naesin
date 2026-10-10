@@ -1496,6 +1496,9 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .perf-voc span { padding: 5px 10px; font-size: 14px; border: 1px solid var(--line); border-radius: 10px; }
 .perf-voc b { color: var(--accent); }
 @media (max-width: 640px) { .perf-banner { grid-template-columns: 1fr; } .perf-go { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; } }
+.diff-line .mine { font-size: 15.5px; line-height: 1.9; }
+.diff-line .bad { color: var(--err); text-decoration: line-through; text-decoration-thickness: 2px; }
+.diff-line .add { padding: 1px 6px; font-weight: 800; color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); border-radius: 6px; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
