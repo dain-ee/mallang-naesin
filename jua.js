@@ -9,7 +9,8 @@
   // 원래 노트의 채점 기준 그대로 (줄임말·문장부호 차이는 같은 답)
   const norm = (s) => String(s).toLowerCase().replace(/[’‘]/g, "'").replace(/won't/g, 'will not').replace(/isn't/g, 'is not').replace(/aren't/g, 'are not').replace(/\bi'm\b/g, 'i am').replace(/'ll\b/g, ' will').replace(/didn't/g, 'did not').replace(/wasn't/g, 'was not').replace(/weren't/g, 'were not').replace(/[.?!]/g, '').replace(/\s+/g, ' ').trim();
   let S = {}; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
-  S.ans = S.ans || {}; S.log = S.log || [];
+  S.ans = S.ans || {}; S.log = S.log || []; S.del = S.del || {};
+  for (const k in S.del) if (S.ans[k] && (S.ans[k].at || 0) <= S.del[k]) delete S.ans[k];
   if (!UNITS.find((u) => u.no === S.unit)) S.unit = UNITS.length ? UNITS[UNITS.length - 1].no : 0;
   S.terms = S.terms || {}; S.seen = S.seen || {};
   const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -200,6 +201,10 @@
   function merge(sd) {
     if (!sd) return false; const before = JSON.stringify(S);
     for (const k in sd.ans || {}) if (!S.ans[k] || (sd.ans[k].at || 0) > (S.ans[k].at || 0)) S.ans[k] = sd.ans[k];
+    // 선생님이 지운 기록(del: 키 → 지운 시각)은 어느 기기에서도 되살아나지 않게
+    S.del = { ...(S.del || {}), ...(sd.del || {}) };
+    for (const k in S.del) if (S.ans[k] && (S.ans[k].at || 0) <= S.del[k]) delete S.ans[k];
+    S.log = S.log.filter((e) => !(S.del['log:' + e.at]));
     S.terms = S.terms || {}; for (const k in sd.terms || {}) if (!S.terms[k] || (sd.terms[k].at || 0) > (S.terms[k].at || 0)) S.terms[k] = sd.terms[k];
     S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
