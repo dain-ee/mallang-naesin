@@ -1455,6 +1455,28 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .sh-diff .ok { color: var(--ok); } .sh-diff .miss { color: var(--err); text-decoration: underline wavy; text-underline-offset: 4px; } .sh-diff .extra { color: var(--sub); text-decoration: line-through; }
 .verdict .sh-self { margin-top: 8px; }
 
+/* ───────── 학교 프린트 ───────── */
+.sc-pages { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.sc-pg { min-width: 36px; height: 34px; padding: 0 8px; font-weight: 800; font-size: 13.5px; color: var(--sub); background: var(--card); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.sc-pg.some { border-color: var(--accent); color: var(--accent); }
+.sc-pg.all { background: color-mix(in srgb, var(--ok) 14%, var(--card)); border-color: var(--ok); color: var(--ok); }
+.sc-pg.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sc-title { font-size: 16px; }
+.sc-body { display: flex; flex-direction: column; gap: 10px; }
+.sc-h { margin-top: 10px; font-size: 14px; font-weight: 800; color: var(--accent); line-height: 1.5; }
+.sc-g { margin-top: 4px; font-size: 12.5px; color: var(--sub); }
+.sc-item .ko { margin-top: 4px; font-size: 13.5px; color: var(--sub); }
+.sc-q { white-space: normal; margin: 0 0 8px; }
+.sc-notes { padding: 6px 18px; }
+.sc-note { padding: 12px 0; border-bottom: 1px dashed var(--line-soft); }
+.sc-note:last-child { border-bottom: 0; }
+.sc-note .en { font-size: 15.5px; font-weight: 600; line-height: 1.6; }
+.sc-star { margin-top: 6px; padding: 8px 12px; font-size: 13.5px; font-weight: 600; color: #c2410c; background: color-mix(in srgb, #f97316 10%, var(--card)); border-radius: 10px; line-height: 1.55; }
+.sc-vocab .sc-ko { cursor: pointer; }
+.sc-vtools { display: flex; justify-content: flex-end; }
+.choice.sel { border-color: var(--accent); background: var(--accent-soft); }
+.sc-foot { display: flex; justify-content: space-between; margin: 22px 0 8px; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
