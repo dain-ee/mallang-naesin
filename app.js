@@ -1239,7 +1239,7 @@
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; bindQuizTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
     const answered = Object.values(Q.picks); const okN = answered.filter((r) => r.ok).length;
-    if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 두 번 연속 맞히면 빠져요.</span></div>`;
+    if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
       <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button><button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →</button></div></div>`;
@@ -1326,7 +1326,7 @@
       const it = qByKey(key) || {};
       logEv(/^h?x:|^ex:/.test(key) ? '기출 시험지' : '실전 문제', r.ok ? 1 : 0, 1, it.src ? `${it.src} ${+key.split(':')[2] + 1}번` : it.hist ? `${it.lab} ${+key.split(':')[2] + 1}번` : `${key.split(':')[0]}과 ${+key.split(':')[1] + 1}번`);
       fxAfter(r.ok, r.ok ? '.q-card .choice.right, .q-card .verdict' : '.q-card .choice.wrong, .q-card .verdict');
-      if (!r.ok) S.wrong[key] = 0; // 오답노트에서 빠지는 건 오답노트 안에서 두 번 연속 맞혔을 때만
+      if (!r.ok) S.wrong[key] = 0; // 오답노트에서 빠지는 건 오답노트 안에서 다시 맞혔을 때
       save(); done(r);
     };
     main.querySelectorAll('.q-card .choice[data-k]').forEach((b) => (b.onclick = () => { const k = +b.dataset.k; record({ pick: k, ok: k === q.answer }); }));
@@ -1524,7 +1524,7 @@
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
     const answered = Object.values(Q.picks), okN = answered.filter((r) => r.ok).length;
-    if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 두 번 연속 맞히면 빠져요.</span></div>`;
+    if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
       <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button><button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →</button></div></div>`;
@@ -1744,11 +1744,11 @@
     if (!UI.wrongSeen) UI.wrongSeen = []; // 이번에 오답노트에서 푼 문제 — 빠져도 이 화면에서는 「빠짐」으로 남겨 둠
     const keys = [...new Set([...wrongKeys(), ...UI.wrongSeen.filter((k) => /^hx?:/.test(k) === isHist())])];
     const items = keys.map(qByKey).filter(Boolean);
-    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 두 번 연속 맞히면 빠져요.`);
+    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 다시 맞히면 바로 빠져요.`);
     if (!items.length) { main.innerHTML = html + `<div class="empty">아직 틀린 문제가 없어요 👻</div>`; return; }
     const streak = (k) => (k in S.wrong ? S.wrong[k] : 2);
     html += `<div class="qwrap list">${items.map((it, n) => { const p = UI.wrongPicks[it.key], st = streak(it.key);
-      const info = st >= 2 ? '<b class="ok">✓ 두 번 연속 맞혀서 오답노트에서 빠졌어요</b>' : p ? `연속 정답 ${st} / 2 ${p.ok ? '— 한 번 더 맞히면 빠져요' : '— 틀려서 0부터 다시'} <button class="link" data-wredo="${it.key}" type="button">다시 풀기</button>` : `연속 정답 ${st} / 2`;
+      const info = !(it.key in S.wrong) ? '<b class="ok">✓ 맞혀서 오답노트에서 빠졌어요</b>' : p ? `아직 틀렸어요 <button class="link" data-wredo="${it.key}" type="button">다시 풀기</button>` : '';
       return `<div data-wk="${it.key}">${questionCard(it, p, n + 1)}<div class="hint" style="margin:6px 4px 0">${info}</div></div>`; }).join('')}</div>`;
     main.innerHTML = html;
     main.querySelectorAll('[data-wredo]').forEach((b) => (b.onclick = () => { delete UI.wrongPicks[b.dataset.wredo]; const y = scrollY; render(); scrollTo(0, y); }));
@@ -1758,13 +1758,13 @@
       box.querySelectorAll('.choice[data-k]').forEach((b) => (b.onclick = () => {
         const k = +b.dataset.k, ok = k === it.q.answer;
         S.qa[it.key] = { ok, at: Date.now() };
-        if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) { delete S.wrong[it.key]; toast('오답노트에서 빠졌어요!'); } }
+        if (!ok) S.wrong[it.key] = 0; else { delete S.wrong[it.key]; toast('맞혔어요! 오답노트에서 빠졌어요 🎉'); } // 오답노트에서 다시 맞히면 바로 빠짐 (윤건 요청 2026-10-10)
         logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .choice.${ok ? 'right' : 'wrong'}`);
         save(); UI.wrongPicks[it.key] = { pick: k, ok }; const y = scrollY; render(); scrollTo(0, y);
       }));
       if (it.q.type === 'short') bindShortBox(box, it.q, (typed, ok, self) => {
         S.qa[it.key] = { ok, at: Date.now() };
-        if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) delete S.wrong[it.key]; }
+        if (!ok) S.wrong[it.key] = 0; else delete S.wrong[it.key];
         logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .verdict`);
         save(); UI.wrongPicks[it.key] = { typed, ok, self }; const y = scrollY; render(); scrollTo(0, y);
       });
@@ -1773,7 +1773,7 @@
         inp.removeAttribute('id');
         const go = () => { const v = inp.value; const ok = shortOk(it.q, v);
           S.qa[it.key] = { ok, at: Date.now() };
-          if (!ok) S.wrong[it.key] = 0; else { S.wrong[it.key] = (S.wrong[it.key] || 0) + 1; if (S.wrong[it.key] >= 2) delete S.wrong[it.key]; }
+          if (!ok) S.wrong[it.key] = 0; else delete S.wrong[it.key];
           logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .verdict`);
           save(); UI.wrongPicks[it.key] = { typed: v, ok }; const y = scrollY; render(); scrollTo(0, y); };
         inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); go(); } };
