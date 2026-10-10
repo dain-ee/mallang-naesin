@@ -1576,7 +1576,7 @@
     if (c.type === 'match') {
       const L = LESSONS.find((l) => l.no === c.lesson), n = L ? matchPairs(L, c.kind).length : 0;
       const ok = Array.from({ length: n }, (_, i) => ((S.mt || {})[`mt:${c.lesson}:${c.kind}:${i}`] || {}).ok).filter(Boolean).length;
-      return { ok: n > 0 && ok >= n, txt: `${ok}/${n}개 맞힘` };
+      const need = Math.min(c.min || n, n); return { ok: n > 0 && ok >= need, txt: `${ok}/${need}개 맞힘` };
     }
     if (c.type === 'pickSet') {
       const keys = ((S.hwSets || {})[c.id] || null) && S.hwSets[c.id].filter((k) => { const x = qByKey(k); return x && !hideQ(x.q); }); // 범위 밖으로 숨긴 문제는 빼고 셈
@@ -1596,7 +1596,7 @@
       .filter(({ q }) => (q.lesson == null || q.lesson === lesson) && !hideQ(q));
     const txt = (q) => `${q.q} ${q.passage || ''} ${Array.isArray(q.choices) ? q.choices.join(' ') : ''}`;
     const part = (q) => Object.keys(PART_RE).filter((p) => PART_RE[p].test(txt(q)));
-    return all.filter(({ q }) => tags.some((t) => (t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : part(q).includes(t)))).map((x) => x.key);
+    return all.filter(({ q }) => tags.some((t) => (t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : t === 'GM' ? !part(q).length && q.cat === '문법' : part(q).includes(t)))).map((x) => x.key); // GM = 문법만
   }
   function hwEnsurePicks(d) {
     if (TEACHER) return;
@@ -1658,8 +1658,8 @@
         ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
       </section>`;
     }).join('');
-    // 본문 외우기가 제일 먼저 (사용자 2026-10-10: 본문·문법 문제가 최우선, 단어는 이미 앎)
-    html += `<h2 class="route-h hw-group">📖 본문 외우기 · 밀린 숙제</h2><div class="hw-days">${dayCards(HW.days)}</div>`;
+    // 본문·문법이 최우선 (사용자 2026-10-10: 단어는 이미 앎, 대화는 지금 덜 중요)
+    html += `<div class="hw-days">${dayCards(HW.days)}</div>`;
     if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-days">${dayCards(HW.school.days)}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = hwAllDays().find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
