@@ -407,6 +407,11 @@
       return { pre: m[1], ans: m[2], post: m[3] };
     });
   }
+  const wrOk = (v, en) => lcsDiff(norm(v).split(' ').filter(Boolean), norm(en).split(' ')).every(([k]) => k === 'ok') || sameSentence(v, en);
+  function wrDiff(v, en) {
+    const ok = wrOk(v, en), d = lcsDiff(norm(v).split(' ').filter(Boolean), norm(en).split(' '));
+    return (ok ? '<b class="ok">완벽해요! ✓</b> ' : '') + d.map(([k, w]) => `<span class="${k}">${esc(w)}</span>`).join(' ') + (ok ? '' : `<div class="hint">원문: ${esc(en)}</div>`);
+  }
   function lcsDiff(mine, ans) {
     const a = mine, b = ans, n = a.length, m = b.length, dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
     for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
@@ -462,7 +467,8 @@
         const sh = shuffle(toks.map((t, i) => ({ t, i })), x.id);
         inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="tray answer" data-ord="${x.id}"></div><div class="tray">${sh.map((o) => `<button class="chip" data-i="${o.i}" type="button">${esc(o.t)}</button>`).join('')}</div><div class="verdict" hidden></div>`;
       } else if (mode === 'write') {
-        inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="write"><textarea rows="2" data-wr="${x.id}" spellcheck="false" placeholder="영어로 써 보세요 (Enter 로 채점)"></textarea></div><div class="diff-line" hidden></div>`;
+        const last = (S.wr || {})[x.id]; // 지난번에 쓴 답 — 다시 들어와도 남아 있게
+        inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="write"><textarea rows="2" data-wr="${x.id}" spellcheck="false" placeholder="영어로 써 보세요 (Enter 로 채점)">${last ? esc(last.v) : ''}</textarea></div><div class="diff-line" ${last ? '' : 'hidden'}>${last ? wrDiff(last.v, x.en) : ''}</div>`;
       }
       html += `<div class="item ${x.key ? 'key' : ''} ${S.mem[x.id] ? 'done' : ''}" data-id="${x.id}">${sp || `<span class="idx">${n}</span>`}<div class="body">${inner}</div><div class="tools">${memBtn}</div></div>`;
     }
@@ -513,10 +519,10 @@
       const x = byId[ta.dataset.wr], out = ta.closest('.body').querySelector('.diff-line');
       ta.onkeydown = (e) => {
         if (e.key !== 'Enter' || e.shiftKey) return; e.preventDefault();
-        const mine = norm(ta.value).split(' ').filter(Boolean), ans = norm(x.en).split(' ');
-        const d = lcsDiff(mine, ans); const ok = d.every(([k]) => k === 'ok') || sameSentence(ta.value, x.en);
-        out.hidden = false;
-        out.innerHTML = (ok ? '<b class="ok">완벽해요! ✓</b> ' : '') + d.map(([k, w]) => `<span class="${k}">${esc(w)}</span>`).join(' ') + (ok ? '' : `<div class="hint">원문: ${esc(x.en)}</div>`);
+        if (!ta.value.trim()) return;
+        const ok = wrOk(ta.value, x.en);
+        out.hidden = false; out.innerHTML = wrDiff(ta.value, x.en);
+        S.wr = S.wr || {}; S.wr[x.id] = { v: ta.value, ok: ok ? 1 : 0, at: Date.now() }; save(); // 써 본 것은 숙제에 바로 셈
         if (ok) markMem(x.id); else react(false, ta);
       };
     });
@@ -1260,7 +1266,12 @@
     }
     if (c.type === 'mem') { const n = c.ids.filter((id) => S.mem[id]).length; return { ok: n >= c.min, txt: `${n}/${c.min}문장` }; }
     if (c.type === 'qa') { const done = c.keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length; return { ok: done.length >= c.min, txt: `${done.length}/${c.min}문제 풂 · ${ok}개 맞힘` }; }
-    if (c.type === 'drill') { const n = c.ids.filter((id) => (S.dm || {})[`${c.mode}:${id}`]).length; return { ok: n >= c.min, txt: `${n}/${c.min}문장` }; }
+    if (c.type === 'drill') {
+      const perfect = c.ids.filter((id) => (S.dm || {})[`${c.mode}:${id}`]).length;
+      if (c.mode !== 'write') return { ok: perfect >= c.min, txt: `${perfect}/${c.min}문장` };
+      const n = c.ids.filter((id) => (S.dm || {})[`write:${id}`] || (S.wr || {})[id]).length; // 통영작은 써서 채점하면 한 것으로
+      return { ok: n >= c.min, txt: `${n}/${c.min}문장 · 완벽 ${perfect}개` };
+    }
     if (c.type === 'note') { const n = c.ids.filter((id) => { const x = (S.notes || {})[id]; return x && x.marks && x.marks.length; }).length; return { ok: n >= c.min, txt: `${n}/${c.min}문장 표시` }; }
     if (c.type === 'review') {
       const need = c.ids.filter(hasNote), since = new Date((c.since || dayKey(Date.now())) + 'T00:00:00').getTime();
@@ -1465,6 +1476,7 @@
     const before = JSON.stringify(S);
     const or = (a = {}, b = {}) => { const o = { ...a }; for (const k in b) if (b[k] && (!o[k] || (typeof b[k] === 'number' && b[k] > o[k]))) o[k] = b[k]; return o; };
     S.hwSets = { ...(S.hwSets || {}), ...(sd.hwSets || {}) };
+    S.wr = S.wr || {}; for (const k in sd.wr || {}) if (!S.wr[k] || (sd.wr[k].at || 0) > (S.wr[k].at || 0)) S.wr[k] = sd.wr[k];
     S.mem = or(S.mem, sd.mem); S.known = or(S.known, sd.known); S.dm = or(S.dm, sd.dm); S.hwDone = or(S.hwDone, sd.hwDone); S.rev = or(S.rev, sd.rev);
     S.ws = S.ws || {}; S.wsAt = S.wsAt || {}; S.wsv = S.wsv || {};
     for (const k in sd.ws || {}) {
@@ -1574,7 +1586,7 @@
           TEACHER = { students: (await rpc('naesin_students', { p_code: S.syncKey })) || [] };
           if (!params.get('s') && TEACHER.students[0]) S.who = TEACHER.students[0].student;
           const remote = await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey });
-          ['mem', 'known', 'qa', 'wrong', 'log', 'ws', 'wsAt', 'wsv', 'notes', 'notesAt', 'dm', 'rev', 'hwDone'].forEach((k) => delete S[k]);
+          ['mem', 'known', 'qa', 'wrong', 'log', 'ws', 'wsAt', 'wsv', 'notes', 'notesAt', 'dm', 'rev', 'hwDone', 'wr'].forEach((k) => delete S[k]);
           S.qa = {}; S.wrong = {}; S.mem = {}; S.known = {}; mergeInto(remote || {});
           document.documentElement.classList.add('teacher');
           teacherBar(); render();
