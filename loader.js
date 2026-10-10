@@ -63,6 +63,9 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
   }
   let data = null;
   bootStep('시작 (코드 ' + (code ? code.slice(0, 4) + '…' + (q.get('k') ? ' 링크' : ' 저장') : '없음') + ')');
+  // 주소 뒤에 짧은 코드를 붙여도 바로 들어감: …/mallang-naesin/?1113
+  const quick = !q.get('k') && location.search.replace(/^\?/, '').replace(/^c=/, '');
+  if (quick && /^[A-Za-z0-9０-９]{3,12}$/.test(quick)) { askCode(); document.getElementById('code-in').value = quick; document.getElementById('code-ask').requestSubmit(); return; }
   if (!code) { askCode(); return; }
   // 짧은 코드 입력 — 긴 링크를 손으로 칠 수 없는 컴퓨터용. 한 번 넣으면 이 기기에 기억됨
   function askCode(err) {
@@ -81,7 +84,7 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
       document.body.appendChild(d);
       d.onsubmit = async (e) => {
         e.preventDefault();
-        const w = document.getElementById('code-in').value.trim().toLowerCase().replace(/\s+/g, '');
+        const w = document.getElementById('code-in').value.normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/g, ''); // 전각 숫자(１１１３)·띄어쓰기·기호도 받아 줌
         if (!w) return;
         try {
           const enc = new TextEncoder();
