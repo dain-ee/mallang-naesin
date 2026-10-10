@@ -10,7 +10,10 @@
   const norm = (s) => String(s).toLowerCase().replace(/[’‘]/g, "'").replace(/won't/g, 'will not').replace(/isn't/g, 'is not').replace(/aren't/g, 'are not').replace(/\bi'm\b/g, 'i am').replace(/'ll\b/g, ' will').replace(/didn't/g, 'did not').replace(/wasn't/g, 'was not').replace(/weren't/g, 'were not').replace(/[.?!]/g, '').replace(/\s+/g, ' ').trim();
   let S = {}; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
   S.ans = S.ans || {}; S.log = S.log || []; S.del = S.del || {};
+  // 2026-10-10: 예전 노트에서 옮겨 온 기록은 쓰지 않기로 함(선생님 결정) — 오늘부터 새로
+  function clean() { for (const k in S.ans) if (S.ans[k].from === '노트') delete S.ans[k]; S.log = S.log.filter((e) => !/노트 기록 옮김/.test(e.t || '')); }
   for (const k in S.del) if (S.ans[k] && (S.ans[k].at || 0) <= S.del[k]) delete S.ans[k];
+  clean();
   if (!UNITS.find((u) => u.no === S.unit)) S.unit = UNITS.length ? UNITS[UNITS.length - 1].no : 0;
   S.terms = S.terms || {}; S.seen = S.seen || {};
   const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -204,7 +207,7 @@
     // 선생님이 지운 기록(del: 키 → 지운 시각)은 어느 기기에서도 되살아나지 않게
     S.del = { ...(S.del || {}), ...(sd.del || {}) };
     for (const k in S.del) if (S.ans[k] && (S.ans[k].at || 0) <= S.del[k]) delete S.ans[k];
-    S.log = S.log.filter((e) => !(S.del['log:' + e.at]));
+    clean();
     S.terms = S.terms || {}; for (const k in sd.terms || {}) if (!S.terms[k] || (sd.terms[k].at || 0) > (S.terms[k].at || 0)) S.terms[k] = sd.terms[k];
     S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
