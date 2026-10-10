@@ -36,10 +36,9 @@
   const stat = (u, step) => { const list = qs(u, step); return { n: list.length, ok: list.filter((q) => (rec(u, q) || {}).ok).length }; };
   function side() {
     const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
-    $('#nav').innerHTML = (HW ? `<button class="nav-item ${S.step === 'hw' ? 'is-on' : ''}" data-st="hw" type="button"><i class="ni">✎</i>숙제<span class="tally" ${left ? '' : 'hidden'}>${left}</span></button>` : '') +
-      `<button class="nav-item ${S.step === 'terms' ? 'is-on' : ''}" data-st="terms" type="button"><i class="ni">🚌</i>셔틀 카드</button><button class="nav-item ${S.step === 'sum' ? 'is-on' : ''}" data-st="sum" type="button"><i class="ni">📄</i>한 장 요약</button>` +
-      UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div>${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : st - 1}</i>${STEP_NAME[st]}<span class="tally" ${s2.n ? '' : 'hidden'}>${s2.ok}/${s2.n}</span></button>`; }).join('')}</div>`).join('') +
-      `<button class="nav-item ${S.step === 'wrong' ? 'is-on' : ''}" data-st="wrong" type="button"><i class="ni">✕</i>틀린 문제 다시<span class="tally" ${wrongAll() ? '' : 'hidden'}>${wrongAll()}</span></button>`;
+    const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
+    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}${nb('terms', '🚌', '셔틀 카드')}${nb('sum', '📄', '한 장 요약')}${nb('wrong', '✕', '틀린 문제 다시', wr)}</div>` +
+      `<div class="jua-units">${UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '♡' : st - 1}</i><span class="jua-nt">${STEP_NAME[st]}</span><span class="tally">${s2.ok}/${s2.n}</span></button>`; }).join('')}</div></div>`).join('')}</div>`;
     $('#who-name').textContent = S.who || '주아';
     $('#who-edit').textContent = '로그아웃';
   }
@@ -94,7 +93,7 @@
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const tk = HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i], g = tk.go || {}; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; save(true); render(); scrollTo(0, 0); }));
   }
   // ── 셔틀 카드: 학원 시험에 나오는 영어 용어·지시문 ↔ 한국말
-  const UI = { tmode: 'read' };
+  const UI = { tmode: 'read', retried: {} };
   function termsView() {
     const tabs = `<div class="seg"><button type="button" data-tm="read" class="${UI.tmode === 'read' ? 'on' : ''}">쭉 훑어보기</button><button type="button" data-tm="quiz" class="${UI.tmode === 'quiz' ? 'on' : ''}">맞추기</button></div>`;
     let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">🚌 셔틀에서 5분</p><h1>영어로 나와도 당황 금지!</h1><p>negative = 부정문, past continuous = 과거진행형 — 아는 거 영어 이름만 익혀요</p></div><span class="jua-crown">👑</span></section><div class="bar-row">${tabs}</div>`;
@@ -134,7 +133,7 @@
     if (S.step === 'wrong') {
       const groups = UNITS.map((x) => ({ u: x, list: qs(x, 'wrong') })).filter((g) => g.list.length);
       main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">🎀 틀린 문제 다시</p><h1>한 번 더 하면 내 거!</h1><p>처음에 틀렸던 문제예요. 다시 맞히면 여기서 빠져요.</p></div><span class="jua-crown">👑</span></section>` +
-        (groups.length ? groups.map((g) => `<div class="sub-t">♡ ${g.u.no}과</div><ol class="jua-q">${g.list.map((q, i) => qCard(g.u, q, i)).join('')}</ol>`).join('') : '<div class="empty">틀린 문제가 하나도 없어요! 💖</div>');
+        (groups.length ? groups.map((g) => `<div class="card jua-sec"><h2>${g.u.no}과 · 다시 풀어 보기</h2><ol class="jua-q">${g.list.map((q, i) => qCard(g.u, q, i, true)).join('')}</ol></div>`).join('') : '<div class="empty">틀린 문제가 하나도 없어요! 💖</div>');
       bind(); return;
     }
     const st = stat(u, S.step), pct = st.n ? Math.round(st.ok / st.n * 100) : 0;
@@ -150,14 +149,15 @@
     const nb = main.querySelector('[data-next]'); if (nb) nb.onclick = () => { S.step++; save(true); render(); scrollTo(0, 0); };
     bind();
   }
-  function qCard(u, q, i) {
-    const r = rec(u, q), k = `${u.no}:${q.id}`, v = r ? r.v : '';
+  function qCard(u, q, i, retry) {
+    const k = `${u.no}:${q.id}`, r = retry && !UI.retried[k] ? null : rec(u, q), v = r ? r.v : ''; // 틀린 문제 다시: 빈칸부터 새로
     const box = q.choices ? `<div class="jua-ops">${q.choices.map((c) => `<button type="button" class="chip jua-op ${r && norm(r.v) === norm(c) ? (r.ok ? 'right' : 'wrong') : ''}" data-op="${esc(c)}">${esc(c)}</button>`).join('')}</div>`
       : `<div class="jua-line"><input class="jua-in ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-in value="${esc(v)}" autocomplete="off" spellcheck="false" placeholder="답을 써 보세요"><button class="btn sm2" data-check type="button">채점</button></div>`;
     const fb = !r ? '' : r.ok ? `<div class="jua-fb ok">💖 정답! ${esc(q.why)}</div>` : `<div class="jua-fb no">앗, 다시 한번! <details><summary>정답·이유 보기</summary><b>${esc(q.answers[0])}</b> — ${esc(q.why)}</details></div>`;
     return `<li class="jua-li ${r && r.ok ? 'done' : ''}" data-k="${k}"><span class="jua-n">${i + 1}</span><div class="jua-body"><div class="jua-p">${q.prompt}</div>${box}${fb}</div></li>`;
   }
   function grade(k, val, el) {
+    if (S.step === 'wrong') UI.retried[k] = 1; // 다시 푼 결과는 그 자리에서 보여 줌
     const [un, id] = k.split(':').map(Number), u = UNITS.find((x) => x.no === un), q = u.questions.find((x) => x.id === id);
     const ok = q.answers.some((a) => norm(a) === norm(val)), r = S.ans[k];
     S.ans[k] = { v: val, ok: ok ? 1 : 0, first: r ? r.first : ok, fixed: r && r.first === false && ok ? 1 : (r && r.fixed) || 0, at: Date.now() };

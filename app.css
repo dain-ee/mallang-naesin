@@ -1572,7 +1572,6 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .jua-li { display: flex; gap: 12px; padding: 14px 4px; border-bottom: 1px dashed var(--line); }
 .jua-li:last-child { border-bottom: 0; }
 .jua-li.done .jua-n { background: var(--accent); color: #fff; }
-.jua-li.done .jua-n::after { content: "♡"; margin-left: 1px; font-size: 10px; }
 .jua-n { flex: none; display: grid; place-items: center; width: 28px; height: 28px; font-size: 13px; font-weight: 800; color: var(--accent); background: var(--accent-soft); border-radius: 50%; }
 .jua-body { flex: 1; min-width: 0; }
 .jua-p { font-size: 16px; font-weight: 600; line-height: 1.7; }
@@ -1603,6 +1602,32 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .jua-tops { justify-content: center; margin: 14px 0; }
 .jua-tops .jua-op { font-size: 15px; padding: 10px 16px; }
 @media (max-width: 640px) { .jua-term { grid-template-columns: 1fr; } .jua-term em { grid-column: 1; } }
+
+/* 주아 메뉴 — 넓은 화면은 세로 목록, 폰은 깔끔한 칸 */
+:root[data-kid="jua"] .nav { display: flex; flex-direction: column; gap: 14px; }
+.jua-quick, .jua-steps { display: flex; flex-direction: column; gap: 2px; }
+.jua-unit { margin: 0; }
+.jua-nt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-kid="jua"] .nav-item .tally { margin-left: auto; }
+.jua-fb.ok::before, .jua-fb.no::before { content: none; }
+@media (max-width: 560px) {
+  :root[data-kid="jua"] .sidebar { gap: 10px; padding: 14px 16px 6px; }
+  :root[data-kid="jua"] .nav { width: 100%; gap: 10px; }
+  .jua-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .jua-units { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .jua-unit { padding: 8px 10px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .jua-unit-h { padding: 0 2px 6px; }
+  .jua-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  :root[data-kid="jua"] .nav-item { justify-content: flex-start; gap: 6px; margin: 0; padding: 9px 10px; font-size: 13.5px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  :root[data-kid="jua"] .jua-steps .nav-item { flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 9px; }
+  :root[data-kid="jua"] .jua-steps .nav-item .ni { display: none; }
+  :root[data-kid="jua"] .jua-steps .nav-item .tally { margin-left: 0; }
+  :root[data-kid="jua"] .nav-item.is-on { background: var(--accent-soft); border-color: var(--accent-2); }
+  :root[data-kid="jua"] .side-foot { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+  .jua-crown { font-size: 40px; right: 14px; top: 10px; }
+  .jua-li { gap: 10px; }
+  .jua-line { flex-wrap: nowrap; }
+}
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
