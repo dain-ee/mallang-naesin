@@ -1689,6 +1689,31 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
   .hwbar .hwbar-menu { display: inline-flex; }
 }
 
+/* 탭 미끄럼 표시 */
+.has-ink { position: relative; }
+.has-ink > button { position: relative; z-index: 1; }
+.ink { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; transition: transform .3s cubic-bezier(.3, .8, .25, 1), width .3s cubic-bezier(.3, .8, .25, 1), height .3s; }
+.seg .ink { background: var(--card); box-shadow: var(--shadow); border-radius: 9px; }
+.seg.has-ink > button.on { background: transparent; box-shadow: none; }
+.hwbar-tabs .ink { top: auto; bottom: 0; height: 2.5px; background: var(--accent); border-radius: 2px; }
+.hwbar-tabs.has-ink > button.on { border-bottom-color: transparent; }
+@media (prefers-reduced-motion: reduce) { .ink { transition: none; } }
+
+/* 주아 폰 메뉴: 위 5칸 아이콘 한 줄 + 과는 나란히 두 칸 */
+@media (max-width: 560px) {
+  :root[data-kid="jua"] .nav { flex: 1 1 100%; }
+  .jua-quick { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  :root[data-kid="jua"] .jua-quick .nav-item { position: relative; flex-direction: column; align-items: center; justify-content: flex-start; gap: 5px; padding: 10px 2px 9px; font-size: 12px; text-align: center; }
+  :root[data-kid="jua"] .jua-quick .jua-nt { flex: none; white-space: normal; line-height: 1.25; word-break: keep-all; overflow: visible; }
+  :root[data-kid="jua"] .jua-quick .nav-item .ni { margin: 0; width: 30px; height: 30px; font-size: 15px; border-radius: 10px; }
+  :root[data-kid="jua"] .jua-quick .nav-item .tally { position: absolute; top: 4px; right: 4px; margin: 0; padding: 0 5px; font-size: 10px; }
+  .jua-units { width: 100%; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .jua-quick { width: 100%; }
+  .jua-steps { grid-template-columns: 1fr; gap: 4px; }
+  :root[data-kid="jua"] .jua-steps .nav-item { flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 9px; font-size: 13px; }
+  :root[data-kid="jua"] .jua-steps .nav-item .tally { margin-left: auto; }
+}
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

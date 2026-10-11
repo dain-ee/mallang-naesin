@@ -263,6 +263,7 @@
       ({ hw: hwView, perf, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
     hwBar();
+    { const b = main.querySelector('.hwbar-tabs'); if (b) slideInk(b, 'hwbar', 1); main.querySelectorAll('.seg').forEach((s, i) => slideInk(s, `${S.tab}:${s.dataset.seg || i}`)); }
     const view = `${S.subj}:${isHist() ? S.hunit : S.lesson}:${S.tab}`;
     if (view !== lastView) { lastView = view; main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter'); }
     if (pendingFx) { const f = pendingFx; pendingFx = null; const el = f.sel && main.querySelector(f.sel); react(f.ok, el); }
@@ -1642,6 +1643,21 @@
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
+  }
+  // 탭 미끄럼: 선택 표시(밑줄·칸)가 앞에 고른 탭 자리에서 새 탭으로 미끄러져 감
+  const INK = {};
+  function slideInk(box, key, line) {
+    const on = box.querySelector(':scope > button.on'); if (!on) return;
+    let ink = box.querySelector(':scope > .ink'); if (!ink) { ink = document.createElement('span'); ink.className = 'ink'; box.prepend(ink); }
+    box.classList.add('has-ink');
+    const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight, s: box.scrollLeft }, from = INK[key];
+    const set = (p) => { ink.style.transform = `translate(${p.x}px, ${line ? 0 : p.y}px)`; ink.style.width = p.w + 'px'; if (!line) ink.style.height = p.h + 'px'; };
+    if (from && (from.x !== to.x || from.y !== to.y || from.w !== to.w)) {
+      ink.style.transition = 'none'; set(from); void ink.offsetWidth; ink.style.transition = '';
+      requestAnimationFrame(() => set(to));
+      if (line && from.s !== to.s) { box.scrollLeft = from.s; box.scrollTo({ left: to.s, behavior: 'smooth' }); }
+    } else set(to);
+    INK[key] = to;
   }
   // 숙제하는 동안: 큰 메뉴 대신 오늘 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {
