@@ -34,7 +34,7 @@
   $('#lesson-sub').textContent = 'Grammar Stage Plus';
   const subj = $('#subj'); if (subj) subj.hidden = true;
   const brand = $('#brand'); brand.removeAttribute('aria-haspopup'); brand.style.cursor = 'pointer';
-  brand.addEventListener('click', () => { UI.hwT = null; delete document.documentElement.dataset.navopen; S.step = HW ? 'hw' : 2; save(true); render(); scrollTo(0, 0); }); // 로고 = 처음 화면(숙제 목록)
+  brand.addEventListener('click', () => { UI.hwT = null; delete document.documentElement.dataset.navopen; S.step = HW ? 'hw' : 2; save(true); goFx(brand, true); }); // 로고 = 처음 화면(숙제 목록)
   const STEP_NAME = { 2: '배우기', 3: '실전 문제', 4: '책 덮고 확인' };
   const qs = (u, step) => u.questions.filter((q) => step === 'wrong' ? isWrong(u, q) : q.step === step);
   const rec = (u, q) => S.ans[`${u.no}:${q.id}`];
@@ -49,7 +49,23 @@
     $('#who-edit').textContent = '로그아웃';
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0);
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; save(true); render(); scrollTo(0, 0); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; save(true); goFx(b); });
+  // 메뉴 칸을 누르면: 칸이 톡 눌리고 → 위에 분홍 로딩 줄 → 내용이 살짝 떠오르며 나타나고, 폰에서는 내용 있는 곳으로 내려감
+  function goFx(btn, top) {
+    const key = `${S.unit}:${S.step}`;
+    btn.classList.remove('jua-tap'); void btn.offsetWidth; btn.classList.add('jua-tap');
+    let bar = document.querySelector('.jua-load'); if (!bar) { bar = document.createElement('div'); bar.className = 'jua-load'; document.body.appendChild(bar); }
+    bar.classList.remove('run'); void bar.offsetWidth; bar.classList.add('run');
+    setTimeout(() => {
+      const jump = UI.wjump; // 단어 게임은 게임 칸으로 바로 내려가니 따로 스크롤하지 않음
+      render();
+      main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter');
+      const nb = document.querySelector(`#nav [data-st="${S.step}"]${S.step > 1 && S.step < 5 ? `[data-u="${S.unit}"]` : ''}`); if (nb) { nb.classList.add('jua-tap'); }
+      if (jump) return;
+      if (top) scrollTo({ top: 0, behavior: 'smooth' });
+      else if (innerWidth <= 900) { const y = main.getBoundingClientRect().top + scrollY - 8; scrollTo({ top: Math.max(0, y), behavior: 'smooth' }); } else scrollTo(0, 0);
+    }, 140);
+  }
 
   // ── 효과: 하트 콘페티 · 딩 소리 · 연속 정답
   let combo = 0, audio = null;
@@ -101,7 +117,7 @@
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => hwOpen(HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i])));
   }
   function hwOpen(tk) {
-    { const g = tk.go || {}; UI.hwT = tk; delete document.documentElement.dataset.navopen; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } save(true); render(); scrollTo(0, 0); }
+    { const g = tk.go || {}; UI.hwT = tk; delete document.documentElement.dataset.navopen; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } save(true); goFx(document.activeElement && document.activeElement.closest('button') || main, true); }
   }
   // 숙제하는 동안: 큰 메뉴 대신 그날 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {

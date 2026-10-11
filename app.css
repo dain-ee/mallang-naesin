@@ -1741,6 +1741,17 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .jw-seen.on { color: #fff; background: linear-gradient(135deg, #ff8fc0, var(--accent)); border-color: transparent; }
 .jw-seen-n { margin-left: auto; font-size: 13px; color: var(--sub); }
 .jw-seen-n em { font-style: normal; color: var(--accent); }
+/* 주아 메뉴 누를 때: 톡 눌림 + 위쪽 분홍 로딩 줄 */
+@keyframes jua-tap { 0% { transform: scale(1); } 35% { transform: scale(.9); } 70% { transform: scale(1.05); } 100% { transform: scale(1); } }
+:root[data-kid="jua"] .nav-item.jua-tap { animation: jua-tap .38s ease; }
+:root[data-kid="jua"] .nav-item:active { transform: scale(.94); }
+:root[data-kid="jua"] .nav-item { transition: transform .1s, background .2s, border-color .2s; }
+.jua-load { position: fixed; top: 0; left: 0; z-index: 99; height: 3px; width: 0; opacity: 0; background: linear-gradient(90deg, #ff8fc0, var(--accent), #c084fc); border-radius: 0 3px 3px 0; box-shadow: 0 0 10px #ff8fc0; pointer-events: none; }
+.jua-load.run { animation: jua-load .6s ease-out forwards; }
+@keyframes jua-load { 0% { width: 0; opacity: 1; } 60% { width: 80%; opacity: 1; } 100% { width: 100%; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .jua-load.run, :root[data-kid="jua"] .nav-item.jua-tap { animation: none; } }
+:root[data-kid="jua"] #brand.jua-tap .mark, :root[data-kid="jua"] #brand.jua-tap img, :root[data-kid="jua"] #brand.jua-tap { animation: jua-tap .38s ease; }
+:root[data-kid="jua"] .hw-task.jua-tap, :root[data-kid="jua"] .hwbar button.jua-tap { animation: jua-tap .38s ease; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
