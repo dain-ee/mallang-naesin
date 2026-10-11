@@ -1812,6 +1812,7 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 .mk-src { margin: 6px 4px 6px; font-size: 12px; font-weight: 700; color: var(--sub); }
 /* 메뉴가 화면보다 길면(지원: 유닛이 많음) 왼쪽 메뉴 안에서 스크롤 → 맨 아래 로그아웃까지 닿게 */
 @media (min-width: 561px) { :root[data-kid="jua"] .sidebar { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; } }
+:root[data-kid="jua"][data-sub="jiwon"] .jua-sec h2::before { content: none; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
