@@ -36,6 +36,7 @@
   const brand = $('#brand'); brand.removeAttribute('aria-haspopup'); brand.style.cursor = 'pointer';
   brand.addEventListener('click', () => { UI.hwT = null; delete document.documentElement.dataset.navopen; S.step = HW ? 'hw' : 2; save(true); goFx(brand, true); }); // 로고 = 처음 화면(숙제 목록)
   const STEP_NAME = { 2: '하 · 기본', 3: '중 · 응용', 4: '상 · 실전' };
+  const SN = (u, st) => ((u && u.stepNames) || {})[st] || STEP_NAME[st], UL = (u) => u.label || `UNIT ${u.no}`, SM = (u, st) => ((u && u.stepMarks) || {})[st] || ['하', '중', '상'][st - 2]; // 심화 유닛은 단계 이름이 따로
   const qs = (u, step) => u.questions.filter((q) => step === 'wrong' ? isWrong(u, q) : q.step === step);
   const rec = (u, q) => S.ans[`${u.no}:${q.id}`];
   const isWrong = (u, q) => { const r = rec(u, q); return r && r.first === false && !r.fixed; };
@@ -44,7 +45,7 @@
     const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
     const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
     $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '일요일 수업', left) : ''}${MOCKS.length ? nb('mock', '📝', '모의고사', mkLeft() || '') : ''}${nb('sum', '📄', '개념 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
-      `<div class="jua-units">${UNITS.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${!i || a[i - 1].chapter !== u.chapter ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">UNIT ${u.no} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : ['하', '중', '상'][st - 2]}</i><span class="jua-nt">${STEP_NAME[st]}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
+      `<div class="jua-units">${UNITS.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${!i || a[i - 1].chapter !== u.chapter ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">${UL(u)} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : SM(u, st)}</i><span class="jua-nt">${SN(u, st)}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
     $('#who-name').textContent = S.who || '지원';
     $('#who-edit').textContent = '로그아웃';
   }
@@ -340,21 +341,21 @@
       const groups = UNITS.map((x) => ({ u: x, list: qs(x, 'wrong') })).filter((g) => g.list.length);
       const mw = mkWrong();
       main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">✕ 틀린 문제 다시</p><h1>한 번 더 하면 내 거!</h1><p>처음에 틀렸던 문제예요. 다시 맞히면 여기서 빠져요.</p></div><span class="jua-crown">🎯</span></section>` +
-        (groups.length ? groups.map((g) => `<div class="card jua-sec"><h2>UNIT ${g.u.no} · 다시 풀어 보기</h2><ol class="jua-q">${g.list.map((q, i) => qCard(g.u, q, i, true)).join('')}</ol></div>`).join('') : '') +
+        (groups.length ? groups.map((g) => `<div class="card jua-sec"><h2>${UL(g.u)} · 다시 풀어 보기</h2><ol class="jua-q">${g.list.map((q, i) => qCard(g.u, q, i, true)).join('')}</ol></div>`).join('') : '') +
         mw.map(({ m, q }) => mkCard(m, q, true)).join('') +
         (!groups.length && !mw.length ? '<div class="empty">틀린 문제가 하나도 없어요! 🎯</div>' : '');
       bind(); mkBind(); return;
     }
     const st = stat(u, S.step), pct = st.n ? Math.round(st.ok / st.n * 100) : 0;
-    let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">CHAPTER ${u.chapter} · UNIT ${u.no} · ${esc(STEP_NAME[S.step])}</p><h1>${esc(u.title)}</h1>
-      <div class="jua-prog"><span style="width:${pct}%"></span></div><p>${st.ok} / ${st.n} 맞힘 ${pct === 100 ? '· 이 단계 클리어! 🎯' : ''}</p></div><span class="jua-crown">${['하', '중', '상'][S.step - 2]}</span></section>`;
+    let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">CHAPTER ${u.chapter} · ${UL(u)} · ${esc(SN(u, S.step))}</p><h1>${esc(u.title)}</h1>
+      <div class="jua-prog"><span style="width:${pct}%"></span></div><p>${st.ok} / ${st.n} 맞힘 ${pct === 100 ? '· 이 단계 클리어! 🎯' : ''}</p></div><span class="jua-crown">${SM(u, S.step)}</span></section>`;
     html += S.step === 2 ? `<div class="jua-lesson">${u.lessons[2] || ''}</div>` : `<details class="jua-lesson jw-fold"><summary>UNIT ${u.no} 개념 다시 보기</summary>${u.lessons[2] || ''}</details>`;
     let sec = null, list = [];
     const flush = () => { if (sec !== null) html += `<div class="card jua-sec"><h2>${esc(sec)}</h2><ol class="jua-q">${list.join('')}</ol></div>`; list = []; };
     qs(u, S.step).forEach((q, i) => { if (q.section !== sec) { flush(); sec = q.section; } list.push(qCard(u, q, i)); });
     flush();
     const ui = UNITS.indexOf(u), nu = UNITS[ui + 1];
-    const next = S.step < 4 ? `<button class="btn ok" data-next type="button">${STEP_NAME[S.step + 1]} →</button>` : nu ? `<button class="btn ok" data-nextu type="button">UNIT ${nu.no} 하 →</button>` : '';
+    const next = S.step < 4 ? `<button class="btn ok" data-next type="button">${SN(u, S.step + 1)} →</button>` : nu ? `<button class="btn ok" data-nextu type="button">${UL(nu)} ${SN(nu, 2)} →</button>` : '';
     main.innerHTML = html + `<div class="sc-foot"><span></span>${next}</div>`;
     const nb = main.querySelector('[data-next]'); if (nb) nb.onclick = () => { S.step++; save(true); goFx(nb, true); };
     const nu2 = main.querySelector('[data-nextu]'); if (nu2) nu2.onclick = () => { S.unit = nu.no; S.step = 2; save(true); goFx(nu2, true); };
@@ -372,12 +373,12 @@
     const [un, id] = k.split(':').map(Number), u = UNITS.find((x) => x.no === un), q = u.questions.find((x) => x.id === id);
     const ok = q.answers.some((a) => norm(a) === norm(val)), r = S.ans[k];
     S.ans[k] = { v: val, ok: ok ? 1 : 0, first: r ? r.first : ok, fixed: r && r.first === false && ok ? 1 : (r && r.fixed) || 0, at: Date.now() };
-    S.log.push({ k: '지원 문법', u: un, t: `UNIT ${un} ${STEP_NAME[q.step]} ${q.tag || ''}`, ok: ok ? 1 : 0, at: Date.now() }); if (S.log.length > 2000) S.log = S.log.slice(-2000);
+    S.log.push({ k: '지원 문법', u: un, t: `${UL(u)} ${SN(u, q.step)} ${q.tag || ''}`, ok: ok ? 1 : 0, at: Date.now() }); if (S.log.length > 2000) S.log = S.log.slice(-2000);
     save();
     const y = scrollY, before = stat(u, q.step);
     render(); scrollTo(0, y);
     react(ok, main.querySelector(`[data-k="${k}"]`) || el);
-    const after = stat(u, q.step); if (ok && after.n && after.ok === after.n && before.ok < before.n) setTimeout(() => { cheer(`🎯 UNIT ${un} ${STEP_NAME[q.step]} 클리어!`); hearts(main.querySelector('.jua-hero') || main, 40); }, 350);
+    const after = stat(u, q.step); if (ok && after.n && after.ok === after.n && before.ok < before.n) setTimeout(() => { cheer(`🎯 ${UL(u)} ${SN(u, q.step)} 클리어!`); hearts(main.querySelector('.jua-hero') || main, 40); }, 350);
   }
   function bind() {
     main.querySelectorAll('.jua-li').forEach((li) => {
