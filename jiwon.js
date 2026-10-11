@@ -43,7 +43,7 @@
   function side() {
     const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
     const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
-    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}${MOCKS.length ? nb('mock', '📝', '모의고사', mkLeft() || '') : ''}${nb('sum', '📄', '개념 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
+    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '일요일 수업', left) : ''}${MOCKS.length ? nb('mock', '📝', '모의고사', mkLeft() || '') : ''}${nb('sum', '📄', '개념 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
       `<div class="jua-units">${UNITS.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${!i || a[i - 1].chapter !== u.chapter ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">UNIT ${u.no} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : ['하', '중', '상'][st - 2]}</i><span class="jua-nt">${STEP_NAME[st]}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
     $('#who-name').textContent = S.who || '지원';
     $('#who-edit').textContent = '로그아웃';
@@ -110,11 +110,11 @@
   const taskOk = (t) => t.checks.every((c) => check(c).ok) && (!t.checks.some((c) => c.type === 'wrong') || ((o) => o.length > 0 && o.every((x) => x.checks.every((c) => check(c).ok)))(dayOf(t).tasks.filter((x) => x !== t)));
   function hwView() {
     const t = todayKey();
-    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📌 ${esc(HW.dueLabel)}</p><h1>${esc(HW.title)}</h1><p>하루치씩 · 유닛 하·중·상 + 모의고사 3문제. 틀린 건 다시 맞혀야 끝!</p></div><span class="jua-crown">🎯</span></section><div class="hw-days">` +
+    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📌 ${esc(HW.dueLabel)}</p><h1>${esc(HW.title)}</h1><p>일요일마다 · 그날 챕터 유닛 하·중·상 + 모의고사 3문제. 틀린 건 다시 맞혀야 끝!</p></div><span class="jua-crown">🎯</span></section><div class="hw-days">` +
       HW.days.map((d) => { const okN = d.tasks.filter(taskOk).length, all = okN === d.tasks.length;
         return `<section class="card hw-day ${all ? 'done' : ''} ${d.date === t ? 'today' : ''}"><div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${d.date === t ? '<span class="badge ok">오늘</span>' : ''}<div class="hw-goal">${esc(d.goal)}</div></div><div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>
           <div class="hw-tasks">${d.tasks.map((tk, i) => { const ok = taskOk(tk); return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span><span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(tk.checks.map((c) => check(c).txt).join(' · '))}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
-          ${all ? '<div class="hw-done"><b>🎯 오늘 숙제 끝! 수고했어요</b></div>' : ''}</section>`; }).join('') + '</div>';
+          ${all ? '<div class="hw-done"><b>🎯 오늘 수업 문제 끝! 수고했어요</b></div>' : ''}</section>`; }).join('') + '</div>';
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => hwOpen(HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i])));
   }
   function hwOpen(tk) {
@@ -128,7 +128,7 @@
     const d = UI.hwT ? dayOf(UI.hwT) : HW.days.find((x) => x.date === todayKey()) || HW.days.find((x) => x.date > todayKey());
     const tabs = (d ? d.tasks : []).map((t) => `<button type="button" data-hwt="${d.tasks.indexOf(t)}" class="${UI.hwT === t ? 'on' : ''} ${taskOk(t) ? 'ok' : ''}"><i>${taskOk(t) ? '✓' : d.tasks.indexOf(t) + 1}</i>${esc(t.t.replace(/^[^\w가-힣]+/u, ''))}</button>`).join('');
     const okN = d ? d.tasks.filter(taskOk).length : 0; // 숙제 목록으로는 로고를 눌러 돌아감
-    main.insertAdjacentHTML('afterbegin', `${d ? `<div class="hwbar-h"><h1>${esc(d.label.length === 1 ? d.label + '요일' : d.label)} 숙제</h1><span>${esc(d.dateLabel || '')} · ${okN}/${d.tasks.length} 끝</span></div>` : ''}<nav class="hwbar"><div class="hwbar-tabs">${tabs}</div></nav>`);
+    main.insertAdjacentHTML('afterbegin', `${d ? `<div class="hwbar-h"><h1>${esc(d.dateLabel.split(' ')[0])} 일요일 수업</h1><span>${esc(d.goal || '')} · ${okN}/${d.tasks.length} 끝</span></div>` : ''}<nav class="hwbar"><div class="hwbar-tabs">${tabs}</div></nav>`);
     const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
     bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; S.step = 'hw'; save(true); render(); scrollTo(0, 0); } else hwOpen(d.tasks[+b.dataset.hwt]); }));
     dragScroll(bar);
