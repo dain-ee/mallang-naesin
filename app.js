@@ -1645,7 +1645,7 @@
   }
   // 숙제하는 동안: 큰 메뉴 대신 오늘 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {
-    const on = HW && !isHist() && (S.tab === 'hw' || UI.hwT);
+    const on = HW && !isHist() && UI.hwT && S.tab !== 'hw'; // 숙제 목록 화면은 평소대로, 숙제 하나에 들어갔을 때만
     if (on) document.documentElement.dataset.hwmode = 1; else { delete document.documentElement.dataset.hwmode; delete document.documentElement.dataset.navopen; }
     if (!on) return;
     const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
