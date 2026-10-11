@@ -1638,6 +1638,41 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .sc-pg.hw.on { color: #fff; background: var(--accent); border-color: #f59e0b; box-shadow: 0 0 0 2px #fcd34d; }
 .sc-pg.hw::after { content: ""; position: absolute; top: -4px; right: -4px; width: 10px; height: 10px; background: #f59e0b; border: 2px solid var(--card); border-radius: 50%; }
 
+/* 주아 단어 시험 */
+.jw-tools { flex-wrap: wrap; gap: 6px; align-items: center; }
+.jw-tools .chip.on { color: #fff; background: var(--accent); border-color: var(--accent); }
+.jw-list { display: flex; flex-direction: column; }
+.jw-row { display: grid; grid-template-columns: minmax(140px, 30%) 1fr; gap: 4px 14px; padding: 12px 2px; border-bottom: 1px dashed var(--line); }
+.jw-row:last-child { border-bottom: 0; }
+.jw-en { font-size: 18px; color: var(--accent); }
+.jw-ko { font-size: 15px; font-weight: 700; line-height: 1.5; }
+.jw-ex { grid-column: 2; font-style: normal; font-size: 13.5px; line-height: 1.6; color: var(--sub); }
+.jw-hl { color: var(--accent); }
+.jw-x { color: var(--accent); font-weight: 600; }
+.jw-miss { margin-left: 6px; font-size: 12px; font-style: normal; color: #b45309; }
+.jw-exgap { display: none; }
+.jw-row[class*="hide-"] { cursor: pointer; }
+.jw-row[class*="hide-"]:not(.show) .jw-x { display: none; }
+.jw-row.hide-ko:not(.show) .jw-ko, .jw-row.hide-ko:not(.show) .jw-exko, .jw-row.hide-en:not(.show) .jw-en { color: transparent; background: var(--accent-soft); border-radius: 8px; user-select: none; }
+.jw-row.hide-en:not(.show) .jw-en .jw-miss { visibility: hidden; }
+.jw-row.hide-en:not(.show) .jw-exen { display: none; }
+.jw-row.hide-en:not(.show) .jw-exgap { display: inline; }
+.jw-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.jw-game .jua-prog { margin: 10px 0 4px; }
+.jw-card { display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 18px 4px 6px; text-align: center; }
+.jw-card .badge { align-self: center; }
+.jw-q { font-size: 26px; font-weight: 800; line-height: 1.4; color: var(--accent); word-break: keep-all; }
+.jw-qex { font-size: 14px; color: var(--sub); }
+.jw-gap { text-decoration: none; letter-spacing: 1px; }
+.jw-card .jua-line { max-width: 460px; width: 100%; margin: 4px auto 0; }
+.jw-card .jua-in { font-size: 18px; text-align: center; }
+.jw-sub { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 14px; font-size: 14px; }
+.jw-hint { font-family: ui-monospace, monospace; font-size: 17px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+.jw-msg { min-height: 20px; font-size: 13.5px; color: var(--sub); }
+.jw-card .jua-fb { text-align: left; }
+.jw-card .sc-foot { justify-content: space-between; }
+@media (max-width: 640px) { .jw-row { grid-template-columns: 1fr; } .jw-ex { grid-column: 1; } .jw-q { font-size: 22px; } }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
