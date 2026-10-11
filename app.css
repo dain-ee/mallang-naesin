@@ -1673,6 +1673,22 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 .jw-card .sc-foot { justify-content: space-between; }
 @media (max-width: 640px) { .jw-row { grid-template-columns: 1fr; } .jw-ex { grid-column: 1; } .jw-q { font-size: 22px; } }
 
+/* 숙제 탭줄 — 숙제하는 동안 위에 고정, 폰에서는 큰 메뉴를 접음 */
+.hwbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: stretch; margin: -6px 0 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.hwbar-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; padding: 0 2px; overflow-x: auto; scrollbar-width: none; }
+.hwbar-tabs::-webkit-scrollbar { display: none; }
+.hwbar button { flex: none; display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 11px 10px 9px; font-size: 14px; font-weight: 600; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: none; border: 0; border-bottom: 2.5px solid transparent; cursor: pointer; }
+.hwbar button i { flex: none; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; font-size: 11px; font-style: normal; font-weight: 800; color: var(--accent); background: var(--accent-soft); border-radius: 99px; }
+.hwbar button.ok i { color: #fff; background: var(--ok); }
+.hwbar button.on { color: var(--accent); border-bottom-color: var(--accent); }
+.hwbar button.ok:not(.on) { color: color-mix(in srgb, var(--sub) 70%, transparent); }
+.hwbar .hwbar-menu { display: none; padding: 11px 4px 9px 10px; border-left: 1px solid var(--line); }
+.jw-game, .bar-row { scroll-margin-top: 54px; }
+@media (max-width: 900px) {
+  :root[data-hwmode]:not([data-navopen]) .nav, :root[data-hwmode]:not([data-navopen]) #subj { display: none !important; }
+  .hwbar .hwbar-menu { display: inline-flex; }
+}
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

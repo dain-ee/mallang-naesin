@@ -47,7 +47,7 @@
     $('#who-edit').textContent = '로그아웃';
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0);
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; save(true); render(); scrollTo(0, 0); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; save(true); render(); scrollTo(0, 0); });
 
   // ── 효과: 하트 콘페티 · 딩 소리 · 연속 정답
   let combo = 0, audio = null;
@@ -95,7 +95,22 @@
         return `<section class="card hw-day ${all ? 'done' : ''} ${d.date === t ? 'today' : ''}"><div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${d.date === t ? '<span class="badge ok">오늘</span>' : ''}<div class="hw-goal">${esc(d.goal)}</div></div><div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>
           <div class="hw-tasks">${d.tasks.map((tk, i) => { const ok = taskOk(tk); return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '♡' : i + 1}</span><span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(tk.checks.map((c) => check(c).txt).join(' · '))}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
           ${all ? '<div class="hw-done"><b>👑 오늘 숙제 끝! 최고야 💖</b></div>' : ''}</section>`; }).join('') + '</div>';
-    main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const tk = HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i], g = tk.go || {}; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } save(true); render(); scrollTo(0, 0); }));
+    main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => hwOpen(HW.days.find((x) => x.id === b.dataset.day).tasks[+b.dataset.i])));
+  }
+  function hwOpen(tk) {
+    { const g = tk.go || {}; UI.hwT = tk; delete document.documentElement.dataset.navopen; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } save(true); render(); scrollTo(0, 0); }
+  }
+  // 숙제하는 동안: 큰 메뉴 대신 그날 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
+  function hwBar() {
+    const on = HW && (S.step === 'hw' || UI.hwT);
+    if (on) document.documentElement.dataset.hwmode = 1; else { delete document.documentElement.dataset.hwmode; delete document.documentElement.dataset.navopen; }
+    if (!on) return;
+    const d = UI.hwT ? dayOf(UI.hwT) : HW.days.find((x) => x.date === todayKey()) || HW.days.find((x) => x.date > todayKey());
+    const tabs = (d ? d.tasks : []).map((t) => `<button type="button" data-hwt="${d.tasks.indexOf(t)}" class="${UI.hwT === t ? 'on' : ''} ${taskOk(t) ? 'ok' : ''}"><i>${taskOk(t) ? '♡' : d.tasks.indexOf(t) + 1}</i>${esc(t.t.replace(/^[^\w가-힣]+/u, ''))}</button>`).join('');
+    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.step === 'hw' ? 'on' : ''}">📋 숙제${d ? ` · ${esc(d.label)}` : ''}</button>${tabs}</div><button type="button" class="hwbar-menu" data-hwmenu>☰ 메뉴</button></nav>`);
+    const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
+    bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; S.step = 'hw'; save(true); render(); scrollTo(0, 0); } else hwOpen(d.tasks[+b.dataset.hwt]); }));
+    main.querySelector('[data-hwmenu]').onclick = () => { const r = document.documentElement.dataset; if (r.navopen) delete r.navopen; else { r.navopen = 1; scrollTo(0, 0); } };
   }
   // ── 셔틀 카드: 학원 시험에 나오는 영어 용어·지시문 ↔ 한국말
   const UI = { tmode: 'read', retried: {} };
@@ -215,7 +230,8 @@
   }
 
   // ── 화면
-  function render() {
+  function render() { view(); hwBar(); }
+  function view() {
     side();
     if (S.step === 'hw' && HW) { hwView(); return; }
     if (S.step === 'terms') { termsView(); return; }

@@ -204,7 +204,7 @@
     $('#who-name').textContent = S.who; if (SYNC && S.syncKey && !$('#who-edit').dataset.sure) $('#who-edit').textContent = '로그아웃';
     if (HW && !hs) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
   }
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) go(b.dataset.tab); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) { UI.hwT = null; delete document.documentElement.dataset.navopen; go(b.dataset.tab); } });
   const brand = $('#brand'), menu = $('#lesson-menu');
   brand.addEventListener('click', () => {
     const open = menu.hidden; menu.hidden = !open; brand.setAttribute('aria-expanded', open);
@@ -262,6 +262,7 @@
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
       ({ hw: hwView, perf, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
+    hwBar();
     const view = `${S.subj}:${isHist() ? S.hunit : S.lesson}:${S.tab}`;
     if (view !== lastView) { lastView = view; main.classList.remove('enter'); void main.offsetWidth; main.classList.add('enter'); }
     if (pendingFx) { const f = pendingFx; pendingFx = null; const el = f.sel && main.querySelector(f.sel); react(f.ok, el); }
@@ -1618,6 +1619,7 @@
     (!t.checks.some((c) => c.type === 'wrongClear') || ((others) => others.length > 0 && others.every((x) => x.checks.every((c) => hwCheck(c).ok)))(hwDayOf(t).tasks.filter((x) => x !== t && !x.checks.some((c) => c.type === 'wrongClear'))));
   function hwGo(t) {
     let g = t.go || {};
+    UI.hwT = t; delete document.documentElement.dataset.navopen;
     S.subj = g.subj === 'hist' ? 'hist' : 'en';
     if (g.unit) S.hunit = g.unit;
     ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
@@ -1640,6 +1642,18 @@
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
+  }
+  // 숙제하는 동안: 큰 메뉴 대신 오늘 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
+  function hwBar() {
+    const on = HW && !isHist() && (S.tab === 'hw' || UI.hwT);
+    if (on) document.documentElement.dataset.hwmode = 1; else { delete document.documentElement.dataset.hwmode; delete document.documentElement.dataset.navopen; }
+    if (!on) return;
+    const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
+    const tabs = list.map((t, i) => `<button type="button" data-hwt="${i}" class="${UI.hwT === t ? 'on' : ''} ${hwTaskOk(t) ? 'ok' : ''}"><i>${hwTaskOk(t) ? '✓' : i + 1}</i>${esc(t.t)}</button>`).join('');
+    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.tab === 'hw' ? 'on' : ''}">📋 숙제 목록</button>${tabs}</div><button type="button" class="hwbar-menu" data-hwmenu>☰ 메뉴</button></nav>`);
+    const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
+    bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
+    main.querySelector('[data-hwmenu]').onclick = () => { const r = document.documentElement.dataset; if (r.navopen) delete r.navopen; else { r.navopen = 1; window.scrollTo(0, 0); } };
   }
   function hwMessage(d) {
     const at = S.hwDone && S.hwDone[d.id] ? new Date(S.hwDone[d.id]) : new Date();
