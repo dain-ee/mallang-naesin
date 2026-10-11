@@ -32,7 +32,8 @@
   $('.brand-name').textContent = '주아 영어';
   $('#lesson-sub').textContent = 'Grammar Stage Plus';
   const subj = $('#subj'); if (subj) subj.hidden = true;
-  const brand = $('#brand'); brand.removeAttribute('aria-haspopup'); brand.style.cursor = 'default';
+  const brand = $('#brand'); brand.removeAttribute('aria-haspopup'); brand.style.cursor = 'pointer';
+  brand.addEventListener('click', () => { UI.hwT = null; delete document.documentElement.dataset.navopen; S.step = HW ? 'hw' : 2; save(true); render(); scrollTo(0, 0); }); // 로고 = 처음 화면(숙제 목록)
   const STEP_NAME = { 2: '배우기', 3: '실전 문제', 4: '책 덮고 확인' };
   const qs = (u, step) => u.questions.filter((q) => step === 'wrong' ? isWrong(u, q) : q.step === step);
   const rec = (u, q) => S.ans[`${u.no}:${q.id}`];
