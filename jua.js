@@ -42,8 +42,8 @@
   function side() {
     const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
     const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
-    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}${(DATA.words || {}).words ? nb('words', '🔤', '단어 시험', wLeft() || '') : ''}${nb('terms', '🚌', '셔틀 카드')}${nb('sum', '📄', '한 장 요약')}${nb('wrong', '✕', '틀린 문제 다시', wr)}</div>` +
-      `<div class="jua-units">${UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '♡' : st - 1}</i><span class="jua-nt">${STEP_NAME[st]}</span><span class="tally">${s2.ok}/${s2.n}</span></button>`; }).join('')}</div></div>`).join('')}</div>`;
+    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}${(DATA.words || {}).words ? nb('words', '🔤', '단어 시험', wLeft() || '') : ''}${nb('terms', '🚌', '셔틀 카드')}${nb('sum', '📄', '한 장 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
+      `<div class="jua-units">${UNITS.slice().reverse().map((u) => `<div class="jua-unit"><div class="jua-unit-h">♡ ${u.no}과</div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '♡' : st - 1}</i><span class="jua-nt">${STEP_NAME[st]}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '♡ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
     $('#who-name').textContent = S.who || '주아';
     $('#who-edit').textContent = '로그아웃';
   }
@@ -108,7 +108,8 @@
     if (!on) return;
     const d = UI.hwT ? dayOf(UI.hwT) : HW.days.find((x) => x.date === todayKey()) || HW.days.find((x) => x.date > todayKey());
     const tabs = (d ? d.tasks : []).map((t) => `<button type="button" data-hwt="${d.tasks.indexOf(t)}" class="${UI.hwT === t ? 'on' : ''} ${taskOk(t) ? 'ok' : ''}"><i>${taskOk(t) ? '♡' : d.tasks.indexOf(t) + 1}</i>${esc(t.t.replace(/^[^\w가-힣]+/u, ''))}</button>`).join('');
-    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.step === 'hw' ? 'on' : ''}">📋 숙제${d ? ` · ${esc(d.label)}` : ''}</button>${tabs}</div></nav>`);
+    const okN = d ? d.tasks.filter(taskOk).length : 0; // 숙제 목록으로는 로고를 눌러 돌아감
+    main.insertAdjacentHTML('afterbegin', `${d ? `<div class="hwbar-h"><h1>${esc(d.label.length === 1 ? d.label + '요일' : d.label)} 숙제</h1><span>${esc(d.dateLabel || '')} · ${okN}/${d.tasks.length} 끝</span></div>` : ''}<nav class="hwbar"><div class="hwbar-tabs">${tabs}</div></nav>`);
     const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
     bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; S.step = 'hw'; save(true); render(); scrollTo(0, 0); } else hwOpen(d.tasks[+b.dataset.hwt]); }));
     dragScroll(bar);

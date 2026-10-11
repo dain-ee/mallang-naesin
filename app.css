@@ -1712,6 +1712,30 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
   :root[data-kid="jua"] .jua-steps .nav-item .tally { margin-left: auto; }
 }
 
+/* 주아 폰 메뉴 다듬기: 숫자는 칸 안에, 과 안쪽 칸 테두리 없이 줄 + 진도 막대 */
+.jua-sbar { display: none; }
+@media (max-width: 560px) {
+  .jua-long { display: none; }
+  :root[data-kid="jua"] .jua-quick .nav-item { padding: 10px 2px 8px; }
+  :root[data-kid="jua"] .jua-quick .nav-item .tally { top: 6px; right: 6px; min-width: 18px; padding: 0 5px; font-size: 10.5px; line-height: 17px; text-align: center; }
+  .jua-unit { padding: 10px 12px 6px; }
+  .jua-steps { gap: 0; }
+  :root[data-kid="jua"] .jua-steps .nav-item { display: grid; grid-template-columns: 1fr auto; row-gap: 5px; padding: 8px 2px 9px; background: none; border: 0; border-bottom: 1px dashed var(--line); border-radius: 0; }
+  :root[data-kid="jua"] .jua-steps .nav-item:last-child { border-bottom: 0; }
+  :root[data-kid="jua"] .jua-steps .nav-item.is-on { background: none; border-color: var(--line); }
+  :root[data-kid="jua"] .jua-steps .nav-item.is-on .jua-nt { color: var(--accent); font-weight: 800; }
+  :root[data-kid="jua"] .jua-steps .nav-item .tally { padding: 0; font-size: 12px; color: var(--sub); background: none; }
+  :root[data-kid="jua"] .jua-steps .nav-item .tally.full { color: var(--accent); }
+  .jua-sbar { display: block; grid-column: 1 / -1; height: 4px; background: var(--accent-soft); border-radius: 99px; overflow: hidden; }
+  .jua-sbar i { display: block; height: 100%; background: linear-gradient(90deg, #ff8fc0, var(--accent)); border-radius: 99px; }
+}
+.hwbar-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: -4px 2px 4px; }
+.hwbar-h h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+:root[data-kid="jua"] .hwbar-h h1 { color: var(--accent); }
+.hwbar-h span { font-size: 13.5px; font-weight: 600; color: var(--sub); }
+.hwbar-h .link { margin-left: auto; font-size: 13.5px; color: var(--accent); }
+.hwbar { margin-top: 0; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

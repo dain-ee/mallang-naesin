@@ -1675,9 +1675,10 @@
     if (!on) return;
     const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
     const tabs = list.map((t, i) => `<button type="button" data-hwt="${i}" class="${UI.hwT === t ? 'on' : ''} ${hwTaskOk(t) ? 'ok' : ''}"><i>${hwTaskOk(t) ? '✓' : i + 1}</i>${esc(t.t)}</button>`).join('');
-    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.tab === 'hw' ? 'on' : ''}">📋 숙제 목록</button>${tabs}</div></nav>`);
+    const d = hwDayOf(UI.hwT), okN = list.filter(hwTaskOk).length;
+    main.insertAdjacentHTML('afterbegin', `<div class="hwbar-h"><h1>${esc(d.label.length === 1 ? d.label + '요일' : d.label)} 숙제</h1><span>${okN}/${list.length} 끝</span><button type="button" class="link" data-hwt="list">숙제 목록 ›</button></div><nav class="hwbar"><div class="hwbar-tabs">${tabs}</div></nav>`);
     const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
-    bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
+    main.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
     dragScroll(bar);
   }
   function hwMessage(d) {
