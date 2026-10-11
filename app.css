@@ -1809,6 +1809,7 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 @media (max-width: 560px) { .mk-psg { font-size: 16px; } .mk-q { padding: 16px 14px; } }
 .jw-ch { grid-column: 1 / -1; }
 :root[data-kid="jua"][data-sub="jiwon"] .jua-hero > div { padding-right: 58px; }
+.mk-src { margin: 6px 4px 6px; font-size: 12px; font-weight: 700; color: var(--sub); }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

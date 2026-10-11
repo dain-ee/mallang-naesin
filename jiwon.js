@@ -103,7 +103,7 @@
     if (c.type === 'termsQuiz') { const n = TERMS.terms.filter((t) => (S.terms[t.id] || {}).ok).length; return { ok: n >= TERMS.terms.length, txt: `${n}/${TERMS.terms.length}개 맞힘` }; }
     if (c.type === 'words') { const n = wDone(c.mode); return { ok: WL.length > 0 && n >= WL.length, txt: `${n}/${WL.length}개 외움` }; }
     if (c.type === 'wordsSeen') { const n = wSeenN(c.day); return { ok: WL.length > 0 && n >= WL.length, txt: `${n}/${WL.length}개 봤어요` }; }
-    if (c.type === 'mock') { const list = mkList(c.set, c.from, c.to), done = list.filter((q) => mkRec(c.set, q.n)).length, ok = list.filter((q) => (mkRec(c.set, q.n) || {}).ok).length; return { ok: list.length > 0 && done >= list.length, txt: `${done}/${list.length}문제 풂 · ${ok}개 맞힘` }; }
+    if (c.type === 'mock') { const list = c.keys.map((k) => MKALL().find((x) => x.k === k)).filter(Boolean), done = list.filter((x) => mkRec(x.m.id, x.q.n)).length, ok = list.filter((x) => (mkRec(x.m.id, x.q.n) || {}).ok).length; return { ok: list.length > 0 && done >= list.length, txt: `${done}/${list.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'seen') return { ok: !!S.seen[c.key], txt: S.seen[c.key] ? '봤어요' : '아직' };
     return { ok: false, txt: '' };
   }
@@ -170,7 +170,7 @@
   const mkRec = (set, n) => S.mk[`${set}:${n}`];
   const mkList = (set, from, to) => ((MK(set) || {}).qs || []).filter((q) => q.n >= from && q.n <= to);
   const mkWrong = () => MOCKS.flatMap((m) => m.qs.filter((q) => { const r = mkRec(m.id, q.n); return r && r.first === false && !r.fixed; }).map((q) => ({ m, q })));
-  const mkLeft = () => { if (!HW) return 0; const d = HW.days.find((x) => x.date === todayKey()); if (!d) return 0; return d.tasks.flatMap((t) => t.checks).filter((c) => c.type === 'mock').reduce((n, c) => n + mkList(c.set, c.from, c.to).filter((q) => !mkRec(c.set, q.n)).length, 0); };
+  const mkLeft = () => { if (!HW) return 0; const d = HW.days.find((x) => x.date === todayKey()); if (!d) return 0; return d.tasks.flatMap((t) => t.checks).filter((c) => c.type === 'mock').reduce((n, c) => n + c.keys.filter((k) => !S.mk[k]).length, 0); };
   const NUM = ['①', '②', '③', '④', '⑤'];
   function mkCard(m, q, retry) {
     const k = `${m.id}:${q.n}`, r = retry && !UI.retried['mk:' + k] ? null : mkRec(m.id, q.n);
@@ -189,18 +189,21 @@
     const y = scrollY; render(); scrollTo(0, y);
     react(ok, main.querySelector(`[data-mk="${k}"]`) || el);
   }
+  // 모의고사는 빈칸추론만 — 여러 회차를 한 줄로 이어서 3문제씩
+  const MKALL = () => MOCKS.flatMap((m) => m.qs.map((q) => ({ m, q, k: `${m.id}:${q.n}` })));
   function mockView() {
-    const m = MOCKS[MOCKS.length - 1], from = UI.mfrom || (m.qs.find((q) => !mkRec(m.id, q.n)) || m.qs[0]).n;
-    const chunks = []; for (let i = 0; i < m.qs.length; i += 3) chunks.push(m.qs.slice(i, i + 3));
-    const cur = chunks.find((c) => c.some((q) => q.n === from)) || chunks[0];
-    const done = m.qs.filter((q) => (mkRec(m.id, q.n) || {}).ok).length;
-    const tabs = `<div class="seg mk-seg">${chunks.map((c) => { const all = c.every((q) => (mkRec(m.id, q.n) || {}).ok); return `<button type="button" data-mf="${c[0].n}" class="${c === cur ? 'on' : ''}">${all ? '✓ ' : ''}${c[0].n}~${c[c.length - 1].n}</button>`; }).join('')}</div>`;
-    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📝 하루 3문제</p><h1>고1 모의고사 · ${esc(m.short.replace(" 고1", ""))}</h1><div class="jua-prog"><span style="width:${Math.round(done / m.qs.length * 100)}%"></span></div><p>${done} / ${m.qs.length} 맞힘 · 독해 18~45번</p></div><span class="jua-crown">🎯</span></section><div class="bar-row mk-bar">${tabs}</div>` +
-      cur.map((q) => mkCard(m, q)).join('') +
+    const all = MKALL(), chunks = []; for (let i = 0; i < all.length; i += 3) chunks.push(all.slice(i, i + 3));
+    const first = (all.find((x) => !mkRec(x.m.id, x.q.n)) || all[0]).k, from = UI.mfrom || first;
+    const cur = chunks.find((c) => c.some((x) => x.k === from)) || chunks[0];
+    const done = all.filter((x) => (mkRec(x.m.id, x.q.n) || {}).ok).length;
+    const lab = (c) => c.map((x) => x.q.n).join('·');
+    const tabs = `<div class="seg mk-seg">${chunks.map((c, i) => { const ok = c.every((x) => (mkRec(x.m.id, x.q.n) || {}).ok); return `<button type="button" data-mf="${c[0].k}" class="${c === cur ? 'on' : ''}">${ok ? '✓ ' : ''}${i + 1}회 ${lab(c)}</button>`; }).join('')}</div>`;
+    main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📝 일요일마다 3문제</p><h1>고1 모의고사 빈칸추론</h1><div class="jua-prog"><span style="width:${Math.round(done / all.length * 100)}%"></span></div><p>${done} / ${all.length} 맞힘 · ${MOCKS.map((m) => m.short).join(' · ')}</p></div><span class="jua-crown">🎯</span></section><div class="bar-row mk-bar">${tabs}</div>` +
+      cur.map((x) => `<p class="mk-src">${esc(x.m.title)}</p>` + mkCard(x.m, x.q)).join('') +
       `<div class="sc-foot"><span></span>${chunks.indexOf(cur) < chunks.length - 1 ? `<button class="btn ok" data-mnext type="button">다음 3문제 →</button>` : ''}</div>`;
-    UI.mfrom = cur[0].n;
-    main.querySelectorAll('[data-mf]').forEach((b) => (b.onclick = () => { UI.mfrom = +b.dataset.mf; render(); }));
-    const nx = main.querySelector('[data-mnext]'); if (nx) nx.onclick = () => { UI.mfrom = chunks[chunks.indexOf(cur) + 1][0].n; render(); scrollTo({ top: 0, behavior: 'smooth' }); };
+    UI.mfrom = cur[0].k;
+    main.querySelectorAll('[data-mf]').forEach((b) => (b.onclick = () => { UI.mfrom = b.dataset.mf; render(); }));
+    const nx = main.querySelector('[data-mnext]'); if (nx) nx.onclick = () => { UI.mfrom = chunks[chunks.indexOf(cur) + 1][0].k; render(); scrollTo({ top: 0, behavior: 'smooth' }); };
     mkBind();
   }
   function mkBind() { main.querySelectorAll('[data-mk]').forEach((a) => a.querySelectorAll('[data-mop]').forEach((b) => (b.onclick = () => mkGrade(a.dataset.mk, b.dataset.mop, b)))); }
