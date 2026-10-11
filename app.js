@@ -1644,6 +1644,15 @@
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
   }
+  // 탭 줄을 마우스로 끌거나 휠을 굴려도 옆으로 넘어가게 (손가락은 원래 됨)
+  function dragScroll(el) {
+    let x0 = null, s0 = 0, moved = false;
+    el.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') return; x0 = e.clientX; s0 = el.scrollLeft; moved = false; });
+    el.addEventListener('pointermove', (e) => { if (x0 === null) return; const dx = e.clientX - x0; if (Math.abs(dx) > 4) { moved = true; el.scrollLeft = s0 - dx; } });
+    ['pointerup', 'pointerleave'].forEach((t) => el.addEventListener(t, () => { x0 = null; })); // 줄이 다시 그려지면 새 줄에 새로 붙음
+    el.addEventListener('click', (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+    el.addEventListener('wheel', (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && el.scrollWidth > el.clientWidth) { e.preventDefault(); el.scrollLeft += e.deltaY; } }, { passive: false });
+  }
   // 탭 미끄럼: 선택 표시(밑줄·칸)가 앞에 고른 탭 자리에서 새 탭으로 미끄러져 감
   const INK = {};
   function slideInk(box, key, line) {
@@ -1666,10 +1675,10 @@
     if (!on) return;
     const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
     const tabs = list.map((t, i) => `<button type="button" data-hwt="${i}" class="${UI.hwT === t ? 'on' : ''} ${hwTaskOk(t) ? 'ok' : ''}"><i>${hwTaskOk(t) ? '✓' : i + 1}</i>${esc(t.t)}</button>`).join('');
-    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.tab === 'hw' ? 'on' : ''}">📋 숙제 목록</button>${tabs}</div><button type="button" class="hwbar-menu" data-hwmenu>☰ 메뉴</button></nav>`);
+    main.insertAdjacentHTML('afterbegin', `<nav class="hwbar"><div class="hwbar-tabs"><button type="button" data-hwt="list" class="${S.tab === 'hw' ? 'on' : ''}">📋 숙제 목록</button>${tabs}</div></nav>`);
     const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
     bar.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
-    main.querySelector('[data-hwmenu]').onclick = () => { const r = document.documentElement.dataset; if (r.navopen) delete r.navopen; else { r.navopen = 1; window.scrollTo(0, 0); } };
+    dragScroll(bar);
   }
   function hwMessage(d) {
     const at = S.hwDone && S.hwDone[d.id] ? new Date(S.hwDone[d.id]) : new Date();
