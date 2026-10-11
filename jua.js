@@ -9,9 +9,10 @@
   // 원래 노트의 채점 기준 그대로 (줄임말·문장부호 차이는 같은 답)
   const norm = (s) => String(s).toLowerCase().replace(/[’‘]/g, "'").replace(/won't/g, 'will not').replace(/isn't/g, 'is not').replace(/aren't/g, 'are not').replace(/\bi'm\b/g, 'i am').replace(/'ll\b/g, ' will').replace(/didn't/g, 'did not').replace(/wasn't/g, 'was not').replace(/weren't/g, 'were not').replace(/[.?!]/g, '').replace(/\s+/g, ' ').trim();
   let S = {}; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
-  S.ans = S.ans || {}; S.log = S.log || []; S.del = S.del || {};
+  S.ans = S.ans || {}; S.log = S.log || []; S.del = S.del || {}; S.wd = S.wd || {};
   // 2026-10-10: 예전 노트에서 옮겨 온 기록은 쓰지 않기로 함(선생님 결정) — 오늘부터 새로
-  function clean() { for (const k in S.ans) if (S.ans[k].from === '노트') delete S.ans[k]; S.log = S.log.filter((e) => !/노트 기록 옮김/.test(e.t || '')); }
+  function clean() { for (const k in S.ans) if (S.ans[k].from === '노트') delete S.ans[k]; S.log = S.log.filter((e) => !/노트 기록 옮김/.test(e.t || '') && !(S.del || {})['log:' + e.at]);
+    for (const k in S.del || {}) if (k.startsWith('wd:') && S.wd && S.wd[k.slice(3)] && (S.wd[k.slice(3)].at || 0) <= S.del[k]) delete S.wd[k.slice(3)]; } // 선생님이 지운 단어 기록·기록장 줄도 되살아나지 않게
   for (const k in S.del) if (S.ans[k] && (S.ans[k].at || 0) <= S.del[k]) delete S.ans[k];
   clean();
   if (!UNITS.find((u) => u.no === S.unit)) S.unit = UNITS.length ? UNITS[UNITS.length - 1].no : 0;
@@ -84,6 +85,7 @@
     if (c.type === 'termsRead') return { ok: !!S.seen.terms, txt: S.seen.terms ? '다 훑어봤어요' : '아직' };
     if (c.type === 'termsQuiz') { const n = TERMS.terms.filter((t) => (S.terms[t.id] || {}).ok).length; return { ok: n >= TERMS.terms.length, txt: `${n}/${TERMS.terms.length}개 맞힘` }; }
     if (c.type === 'words') { const n = wDone(c.mode); return { ok: WL.length > 0 && n >= WL.length, txt: `${n}/${WL.length}개 외움` }; }
+    if (c.type === 'wordsSeen') { const n = wSeenN(c.day); return { ok: WL.length > 0 && n >= WL.length, txt: `${n}/${WL.length}개 봤어요` }; }
     if (c.type === 'seen') return { ok: !!S.seen[c.key], txt: S.seen[c.key] ? '봤어요' : '아직' };
     return { ok: false, txt: '' };
   }
@@ -150,6 +152,7 @@
   const wrec = (m, id) => S.wd[`${m}:${id}`];
   const wGot = (m, id) => { const r = wrec(m, id); return !!r && r.s >= (r.w ? 2 : 1); };
   const wDone = (m) => WL.filter((w) => wGot(m, w.id)).length;
+  const wSeenKey = (id, day = todayKey()) => `words:${day}:${id}`, wSeenN = (day = todayKey()) => WL.filter((w) => S.seen[wSeenKey(w.id, day)]).length;
   const wLeft = () => WL.filter((w) => !wGot('ko', w.id) || !wGot('en', w.id)).length; // 뜻·영어 둘 다 외워야 끝
   const hangul = (s) => /[ㄱ-ㅎㅏ-ㅣ가-힣]/.test(s);
   // 뜻 채점: 책 뜻을 쉼표·빗금으로 나눠 괄호·물결·띄어쓰기를 빼고, 끝의 '다'·'한'·'는' 같은 꼬리는 달라도 맞음
@@ -165,16 +168,24 @@
     let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">🔤 ${esc(WORDS.when || '')}</p><h1>단어 ${WL.length}개, 내 거 만들기!</h1><p>${esc(WORDS.test || '')}<br>틀린 단어는 또 나와요. 한 번 틀린 건 <b>두 번 연달아</b> 맞혀야 외운 걸로 쳐요 💪</p></div><span class="jua-crown">👑</span></section><div class="bar-row">${tabs}</div>`;
     if (m === 'read') {
       const only = UI.wonly && WL.some((w) => (wrec('ko', w.id) || {}).w || (wrec('en', w.id) || {}).w);
-      html += `<div class="bar-row jw-tools"><button class="chip ${UI.whide === 'ko' ? 'on' : ''}" data-wh="ko" type="button">뜻 가리기</button><button class="chip ${UI.whide === 'en' ? 'on' : ''}" data-wh="en" type="button">영어 가리기</button><button class="chip ${UI.wonly ? 'on' : ''}" data-wo type="button">🔁 틀렸던 것만</button><span class="hint">${UI.whide ? '줄을 누르면 답이 보여요' : ''}</span></div>`;
+      html += `<div class="bar-row jw-tools"><button class="chip ${UI.whide === 'ko' ? 'on' : ''}" data-wh="ko" type="button">뜻 가리기</button><button class="chip ${UI.whide === 'en' ? 'on' : ''}" data-wh="en" type="button">영어 가리기</button><button class="chip ${UI.wonly ? 'on' : ''}" data-wo type="button">🔁 틀렸던 것만</button><span class="hint">${UI.whide ? '줄을 누르면 답이 보여요' : ''}</span><b class="jw-seen-n">오늘 본 단어 <em data-wseen-n>${wSeenN()}</em>/${WL.length}</b></div>`;
       html += Object.entries(WGROUP).map(([d, name]) => { const list = WL.filter((w) => w.day === +d && (!only || (wrec('ko', w.id) || {}).w || (wrec('en', w.id) || {}).w)); return !list.length ? '' :
         `<div class="card jua-sec"><h2>${esc(name)}</h2><div class="jw-list">${list.map((w) => { const miss = ((wrec('ko', w.id) || {}).w || 0) + ((wrec('en', w.id) || {}).w || 0);
-          return `<div class="jw-row ${UI.whide ? 'hide-' + UI.whide : ''}"><b class="jw-en">${esc(w.en)}${miss ? `<i class="jw-miss">🔁${miss}</i>` : ''}</b><span class="jw-ko">${esc(w.ko)}</span><em class="jw-ex"><span class="jw-exen">${exHtml(w)}</span><span class="jw-exgap">${exHtml(w, true)}</span><br><span class="jw-exko">${esc(w.exKo)}</span>${w.extra ? `<br><span class="jw-x">${esc(w.extra)}</span>` : ''}</em></div>`; }).join('')}</div></div>`; }).join('') +
-        `<div class="sc-foot"><span></span><button class="btn ok" data-wread type="button">${S.seen['words:' + todayKey()] ? '다 봤어요 ♡' : '다 봤어요 ✓'}</button></div>`;
+          const sn = !!S.seen[wSeenKey(w.id)];
+          return `<div class="jw-row ${UI.whide ? 'hide-' + UI.whide : ''}"><button type="button" class="jw-seen ${sn ? 'on' : ''}" data-wseen="${w.id}">${sn ? '♡ 봤어요' : '봤어요'}</button><b class="jw-en">${esc(w.en)}${miss ? `<i class="jw-miss">🔁${miss}</i>` : ''}</b><span class="jw-ko">${esc(w.ko)}</span><em class="jw-ex"><span class="jw-exen">${exHtml(w)}</span><span class="jw-exgap">${exHtml(w, true)}</span><br><span class="jw-exko">${esc(w.exKo)}</span>${w.extra ? `<br><span class="jw-x">${esc(w.extra)}</span>` : ''}</em></div>`; }).join('')}</div></div>`; }).join('') +
+        '';
       main.innerHTML = html;
       main.querySelectorAll('.jw-row[class*="hide-"]').forEach((el) => (el.onclick = () => el.classList.toggle('show'))); // 가린 줄을 누르면 그 줄만 보임
       main.querySelectorAll('[data-wh]').forEach((b) => (b.onclick = () => { UI.whide = UI.whide === b.dataset.wh ? '' : b.dataset.wh; render(); }));
       main.querySelector('[data-wo]').onclick = () => { UI.wonly = !UI.wonly; render(); };
-      main.querySelector('[data-wread]').onclick = (e) => { S.seen['words:' + todayKey()] = Date.now(); save(); hearts(e.target, 20); cheer('💖 단어 다 봤어요!'); };
+      // 단어마다 「봤어요」 — 누를 때마다 하트·소리, 40개 다 보면 왕관
+      main.querySelectorAll('[data-wseen]').forEach((b) => (b.onclick = (e) => {
+        e.stopPropagation(); const k = wSeenKey(b.dataset.wseen); if (S.seen[k]) { react(true, b); return; }
+        S.seen[k] = Date.now(); save(); b.classList.add('on'); b.textContent = '♡ 봤어요'; react(true, b);
+        const n = wSeenN(), el = main.querySelector('[data-wseen-n]'); if (el) el.textContent = n;
+        if (n === WL.length) { cheer(`👑 단어 ${WL.length}개 다 봤어요!`); hearts(main.querySelector('.jua-hero') || b, 40); }
+        const row = b.closest('.jw-row'), next = row && row.parentElement.querySelector('.jw-row:has(.jw-seen:not(.on))'); if (next && n < WL.length) setTimeout(() => next.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+      }));
     } else {
       if (!UI.wq || UI.wq.m !== m) wQueue(m);
       const W = UI.wq, cur = WL.find((w) => w.id === (W.phase === 'wrong' ? W.last : W.q[0])), done = wDone(m);
@@ -344,6 +355,7 @@
     S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     S.wd = S.wd || {}; for (const k in sd.wd || {}) if (!S.wd[k] || (sd.wd[k].at || 0) > (S.wd[k].at || 0)) S.wd[k] = sd.wd[k];
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
+    clean();
     return JSON.stringify(S) !== before;
   }
   let busy = false;
