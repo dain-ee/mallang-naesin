@@ -288,7 +288,7 @@
 
 
   // ───────── 수행평가 원고 ─────────
-  const perfItems = () => PERF.sents.map((x, i) => ({ id: `pf:${i}`, en: x.en, ko: x.ko, group: '수행평가 원고', sp: `${i + 1}` }));
+  const perfItems = () => PERF.sents.map((x, i) => ({ id: `${PERF.key || 'pf'}:${i}`, en: x.en, ko: x.ko, group: '수행평가 원고', sp: `${i + 1}` }));
   function perfBanner() {
     if (!PERF || isHist()) return '';
     const t = new Date(todayKey() + 'T00:00:00'), it = perfItems(), m = memCount(it);
