@@ -1811,11 +1811,11 @@
     if (!UI.wrongSeen) UI.wrongSeen = []; // 이번에 오답노트에서 푼 문제 — 빠져도 이 화면에서는 「빠짐」으로 남겨 둠
     const keys = [...new Set([...wrongKeys(), ...UI.wrongSeen.filter((k) => /^hx?:/.test(k) === isHist())])];
     const items = keys.map(qByKey).filter(Boolean);
-    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 다시 맞히면 바로 빠져요.`);
+    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 다시 맞힌 문제는 다음에 들어올 때 빠져요.`);
     if (!items.length) { main.innerHTML = html + `<div class="empty">아직 틀린 문제가 없어요 👻</div>`; return; }
     const streak = (k) => (k in S.wrong ? S.wrong[k] : 2);
     html += `<div class="qwrap list">${items.map((it, n) => { const p = UI.wrongPicks[it.key], st = streak(it.key);
-      const info = !(it.key in S.wrong) ? '<b class="ok">✓ 맞혀서 오답노트에서 빠졌어요</b>' : p ? `아직 틀렸어요 <button class="link" data-wredo="${it.key}" type="button">다시 풀기</button>` : '';
+      const info = !(it.key in S.wrong) ? '<b class="ok">✓ 맞혔어요</b>' : p ? `아직 틀렸어요 <button class="link" data-wredo="${it.key}" type="button">다시 풀기</button>` : '';
       return `<div data-wk="${it.key}">${questionCard(it, p, n + 1)}<div class="hint" style="margin:6px 4px 0">${info}</div></div>`; }).join('')}</div>`;
     main.innerHTML = html;
     main.querySelectorAll('[data-wredo]').forEach((b) => (b.onclick = () => { delete UI.wrongPicks[b.dataset.wredo]; const y = scrollY; render(); scrollTo(0, y); }));
@@ -1825,7 +1825,7 @@
       box.querySelectorAll('.choice[data-k]').forEach((b) => (b.onclick = () => {
         const k = +b.dataset.k, ok = k === it.q.answer;
         S.qa[it.key] = { ok, at: Date.now() };
-        if (!ok) S.wrong[it.key] = 0; else { delete S.wrong[it.key]; toast('맞혔어요! 오답노트에서 빠졌어요 🎉'); } // 오답노트에서 다시 맞히면 바로 빠짐 (윤건 요청 2026-10-10)
+        if (!ok) S.wrong[it.key] = 0; else delete S.wrong[it.key]; // 맞힌 문제는 기록에서만 빠지고, 이 화면에서는 그 자리에 그대로 (2026-10-15 선생님: 갑자기 사라지면 못 봄)
         logEv('오답노트', ok ? 1 : 0, 1, it.key); fxAfter(ok, `[data-wk="${it.key}"] .choice.${ok ? 'right' : 'wrong'}`);
         save(); UI.wrongPicks[it.key] = { pick: k, ok }; const y = scrollY; render(); scrollTo(0, y);
       }));
