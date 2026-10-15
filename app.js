@@ -71,9 +71,17 @@
     if (S.log.length > 5000) S.log = S.log.slice(-5000);
     save();
   }
-  let combo = 0, pendingFx = null;
+  let combo = 0, pendingFx = null, audioCtx = null;
+  // 맞으면 딩동, 틀리면 낮은 소리 (짧게)
+  function ding(ok) {
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      (ok ? [880, 1175] : [330, 247]).forEach((f, i) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination); const t = audioCtx.currentTime + i * 0.09; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22); o.start(t); o.stop(t + 0.25); });
+    } catch (e) {}
+  }
   // 맞히면 팡 · 틀리면 흔들림 · 연속 정답이면 응원
   function react(ok, el) {
+    ding(ok);
     if (ok) {
       combo++;
       if (el) { pop(el); burst(el, combo >= 5 ? 26 : 14); }
@@ -794,6 +802,7 @@
         out.hidden = false; out.innerHTML = wrDiff(ta.value, x.en);
         S.wr = S.wr || {}; S.wr[x.id] = { v: ta.value, ok: ok ? 1 : 0, at: Date.now() }; save(); // 써 본 것은 숙제에 바로 셈
         if (ok) markMem(x.id); else react(false, ta);
+        const all = [...main.querySelectorAll('[data-wr]')], nx = all[all.indexOf(ta) + 1]; if (nx) setTimeout(() => nx.focus({ preventScroll: false }), ok ? 250 : 0); // 다음 문장으로
       };
     });
     function markMem(id) {
@@ -1160,6 +1169,23 @@
       let tSave;
       const keep = () => { clearTimeout(tSave); tSave = setTimeout(() => { S.wsv[id] = inputs.map((el) => el.value); save(); }, 250); };
       inputs.forEach((el) => el.addEventListener('input', keep));
+      // 한 칸 채점 — 본문은 문장마다 Enter 치면 그 자리에서 바로 결과·반응 (2026-10-15 선생님 요청)
+      const checkOne = (el) => {
+        let r;
+        if (el.tagName === 'INPUT') { r = accepts(el.value, el.dataset.ans); }
+        else {
+          r = [el.dataset.full, ...(el.dataset.alt ? el.dataset.alt.split('||') : [])].some((a) => sameSentence(a, el.value));
+          const fb = el.nextElementSibling; fb.hidden = false;
+          if (r) { fb.classList.remove('diff-line'); fb.innerHTML = '<span class="ok">✓ 정답</span>'; } else { fb.classList.add('diff-line'); fb.innerHTML = wrDiff(el.value, el.dataset.full); }
+          const why = fb.nextElementSibling; if (why && why.classList.contains('wwhy')) why.hidden = false;
+        }
+        el.classList.toggle('right', r); el.classList.toggle('wrong', !r);
+        react(r, el);
+        S.wsv[id] = inputs.map((x) => x.value); save();
+        const sc = sec.querySelector('.wscore'); const n = inputs.filter((x) => x.classList.contains('right')).length, tried = inputs.filter((x) => x.classList.contains('right') || x.classList.contains('wrong')).length;
+        if (sc) { sc.hidden = false; sc.className = 'wscore ' + (n === inputs.length ? 'ok' : ''); sc.textContent = `${n} / ${inputs.length} 맞힘 · ${tried}칸 풂`; }
+        return r;
+      };
       const grade = (quiet) => {
         let ok = 0;
         inputs.forEach((el) => {
@@ -1187,14 +1213,13 @@
         sc.textContent = ok === inputs.length ? `${ok} / ${inputs.length} 다 맞았어요! 🎉` : `${ok} / ${inputs.length} 맞힘 — 빨간 칸을 고쳐서 다시 「채점」`;
         S.ws = S.ws || {}; S.ws[id] = { ok, total: inputs.length }; S.wsAt = S.wsAt || {}; S.wsAt[id] = Date.now();
         logEv('학습지', ok, inputs.length, sec.querySelector('h3')?.textContent);
-        inputs.filter((el) => el.classList.contains('wrong')).forEach((el) => shake(el));
-        inputs.filter((el) => el.classList.contains('right')).forEach((el) => pop(el));
+        if (quiet !== 'row') { inputs.filter((el) => el.classList.contains('wrong')).forEach((el) => shake(el)); inputs.filter((el) => el.classList.contains('right')).forEach((el) => pop(el)); } // 문장마다 이미 반응했으면 한꺼번에 또 흔들지 않음
         if (ok === inputs.length && ok) { burst(sc, 28); cheer('🎉 다 맞았어요!'); } else if (ok) burst(sc, 8);
         save();
       };
       const g = sec.querySelector('[data-grade]'); if (g) g.onclick = () => grade();
       // 칸을 다 채웠으면 「채점」을 안 눌러도 그 자리에서 채점·기록 (했는데 기록이 안 남는 일 막기)
-      inputs.forEach((el) => el.addEventListener('change', () => { if (inputs.every((x) => x.value.trim())) grade(); }));
+      inputs.forEach((el) => el.addEventListener('change', () => { if (inputs.every((x) => x.value.trim())) grade('row'); }));
       // 채점했던 묶음은 다시 열 때도 맞은 칸·틀린 칸이 보이게 (기록은 다시 남기지 않음)
       if (saved && S.ws && S.ws[id] && inputs.some((el) => el.value.trim())) grade(true);
       const sh = sec.querySelector('[data-show]');
@@ -1204,8 +1229,10 @@
         else { const fb = el.nextElementSibling; fb.hidden = false; fb.innerHTML = `<div class="hint">정답: ${esc(el.dataset.full)}</div>`; const why = fb.nextElementSibling; if (why && why.classList.contains('wwhy')) why.hidden = false; }
       });
       inputs.forEach((el, i) => el.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter' || e.shiftKey) return; e.preventDefault();
-        if (i < inputs.length - 1) inputs[i + 1].focus(); else grade();
+        if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return; e.preventDefault();
+        if (el.value.trim()) checkOne(el); // 문장마다 바로 채점 + 반응
+        if (inputs.every((x) => x.value.trim())) grade('row'); // 다 썼으면 점수 기록 (숙제 체크)
+        if (i < inputs.length - 1) inputs[i + 1].focus();
       }));
       sec.querySelectorAll('textarea.wfull').forEach((ta) => ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }));
       sec.querySelectorAll('[data-hide]').forEach((b) => (b.onclick = () => {
