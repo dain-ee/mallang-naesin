@@ -173,11 +173,22 @@
   const memCount = (items) => items.filter((x) => S.mem[x.id]).length;
   // 5·6과처럼 영어과외TV 공식 단어 목록표가 있으면 그 목록(교과서 단어)을 씁니다. 예문·품사는 만든 자료에서 붙입니다.
   const SCW_TABS = [['list', '단어장'], ['mdef', '영영풀이 맞추기'], ['mko', '뜻 맞추기'], ['card', '카드 외우기'], ['spell', '스펠링 쓰기'], ['sws', '프린트 빈칸']];
+  function printWords(L) {
+    if (!L.school || !L.school.sections || !L.school.sections.words) return null;
+    const pg = L.school.sections.words, ok = new Set();
+    L.school.pages.filter((p) => pg.includes(p.no)).forEach((p) => p.blocks.forEach((b) => {
+      if (b.type === 'vocab') (b.rows || []).forEach((r) => ok.add(norm(r[0])));
+      if (b.type === 'blank') (String(b.s || '').match(/\{\{([^}]+)\}\}/g) || []).forEach((m) => m.slice(2, -2).split('/').forEach((x) => ok.add(norm(x))));
+      if (b.type === 'blank') (String(b.s || '').match(/\{\{[^}]+\}\}(\s*\{\{[^}]+\}\})+/g) || []).forEach((m) => ok.add(norm(m.replace(/[{}]/g, ''))));  // 빈칸 두 개짜리 숙어 (right away)
+    }));
+    return ok;
+  }
   function wordsOf(L) {
     const mine = [...L.words.map((w) => ({ ...w, kind: 'w' })), ...(L.phrases || []).map((w) => ({ ...w, pos: '숙어', kind: 'p' }))];
     if (!(L.ws && ((L.ws.source && ['englishtutortv', 'rule', 'official'].includes(L.ws.source.words)) || L.ws.vocab.from))) return mine; // 학교 프린트 단어가 있으면 그것
     const by = Object.fromEntries(mine.map((w) => [norm(w.en), w]));
-    return L.ws.vocab.list.filter((w) => w.core).map((w) => { const m = by[norm(w.en)] || {}; return { en: w.en, ko: w.ko, pos: m.pos || (w.en.includes(' ') ? '숙어' : ''), ex: w.ex || m.ex, exKo: w.ex ? w.exKo : m.exKo, kind: 'w' }; });
+    const onPrint = printWords(L); // 학교 프린트가 있으면 프린트 Words 쪽에 실제로 있는 단어만 (2026-10-15 선생님: 프린트에 없는 건 다 빼)
+    return L.ws.vocab.list.filter((w) => w.core && (!onPrint || onPrint.has(norm(w.en)))).map((w) => { const m = by[norm(w.en)] || {}; return { en: w.en, ko: w.ko, pos: m.pos || (w.en.includes(' ') ? '숙어' : ''), ex: w.ex || m.ex, exKo: w.ex ? w.exKo : m.exKo, kind: 'w' }; });
   }
   const wid = (L, w) => `${L.no}:w:${w.en}`;
 
@@ -526,8 +537,9 @@
     const tabs = seg('scMode', [['print', '프린트 그대로'], ['memo', '예문 외우기'], ['cond', '조건 영작'], ['mdef', '영영풀이 맞추기']], mode);
     let html = head(`학교 프린트 · ${L.no}과`, `${esc(SC.school)} 선생님 프린트 — ${SC.pages.length}쪽`, tabs);
     if (mode === 'memo') {
-      const g = UI.scGroup || '전체', items = scMemoItems(L, g === '전체' ? SC_GROUPS : [g]);
-      main.innerHTML = html + `<div class="bar-row">${seg('scGroup', [['전체', '전체'], ...SC_GROUPS.map((x) => [x, x])], g)}</div>` + drill(items); bindDrill(items); return;
+      // 예문 외우기는 문법 예문만 (단어 예문·대화·본문은 각 단원 탭에서) — 2026-10-15 선생님
+      const MG = ['문법 예문', '문법 문장'], g = MG.includes(UI.scGroup) ? UI.scGroup : '전체', items = scMemoItems(L, g === '전체' ? MG : [g]);
+      main.innerHTML = html + `<div class="bar-row">${seg('scGroup', [['전체', '문법 전체'], ...MG.map((x) => [x, x])], g)}</div>` + drill(items); bindDrill(items); return;
     }
     if (mode === 'cond') { main.innerHTML = html + `<p class="hint" style="margin:0 2px 12px">조건을 꼭 지켜서 써요. that만 쓰기·동사원형만 쓰기로는 안 풀려요.</p>` + condBox(L); scBind(L); return; }
     if (mode === 'mdef') { main.innerHTML = html + matchBox(L, 'def') + matchBox(L, 'ko'); scBind(L); return; }
@@ -890,7 +902,8 @@
     let items = itemsFor(L, 'reading');
     if (UI.paras && UI.read === 'drill') items = items.filter((x) => UI.paras.includes(+x.id.split(':')[2].split('.')[0]));
     if (['ws', 'test'].includes(UI.read) && !L.ws) UI.read = 'note';
-    const tabs = seg('read', [['note', '필기'], ...(L.school ? [['sprint', '프린트 빈칸·선생님 필기']] : []), ...(L.ws ? [['ws', '학습지'], ['test', '본문시험']] : []), ['drill', '암기 연습']], UI.read);
+    if (UI.read === 'ws' && L.school) UI.read = 'sprint'; // 프린트 있는 과는 프린트 빈칸으로
+    const tabs = seg('read', [['note', '필기'], ...(L.school ? [['sprint', '프린트 빈칸·선생님 필기']] : []), ...(L.ws ? [...(L.school ? [] : [['ws', '학습지']]), ['test', '본문시험']] : []), ['drill', '암기 연습']], UI.read);
     if (UI.read === 'sprint' && L.school) { main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, '학교 선생님 프린트 — 빈칸 채우기와 수업 필기', tabs) + scPagesHtml(L, scPages(L, [...scSect(L, 'rb'), ...scSect(L, 'rn')].sort((a, b) => a - b))); scBind(L); return; }
     if (UI.read === 'note') { main.innerHTML = head(`본문 필기 · ${esc(L.readingTitle)}`, '문장을 드래그해 S·V·O·절을 표시하고, 아래 불릿에 필기해요', tabs) + noteView(L, items); bindNote(L, items); return; }
     if (UI.read === 'ws') { main.innerHTML = head(`본문 · ${esc(L.readingTitle)}`, 'Reading 학습지 — 핵심 암기 → 문법 + 본문 연습 → 필기 집중 연습', tabs) + wsReading(L); bindWs(L); return; }
