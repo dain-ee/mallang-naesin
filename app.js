@@ -12,6 +12,7 @@
   // 역사·과학 — 같은 틀(개념 빈칸·핵심 용어·흐름·실전 문제)을 과목만 바꿔 씀. 단원 번호는 과목끼리 겹치지 않게(역사 2·3, 과학 5·6)
   const SUBJ = { hist: DATA.history || null, sci: DATA.science || null }, SUBJ_NAME = { en: '영어', hist: '역사', sci: '과학' };
   const ALLU = [...((SUBJ.hist || {}).units || []), ...((SUBJ.sci || {}).units || [])], ALLX = [...((SUBJ.hist || {}).exams || []), ...((SUBJ.sci || {}).exams || [])];
+  ALLU.forEach((u) => { u.terms = (u.terms || []).filter((x) => !x.off); }); // 시험 범위 밖으로 뺀 용어(off)는 아예 안 보임 (용어 기록은 낱말로 남아 섞이지 않음)
   const subjOfUnit = (no) => (((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist');
   let HIST = null, HUNITS = [], HEXAMS = []; // 지금 고른 과목(역사 또는 과학)의 자료
   function useSubj() { const d = SUBJ[S.subj] || SUBJ.hist; HIST = d; HUNITS = d ? d.units : []; HEXAMS = d ? d.exams || [] : []; }
@@ -1398,18 +1399,18 @@
   const keyText = (s) => esc(s).replace(/\{([^}]+)\}/g, (_, x) => `<b class="hk">${x.split('|')[0]}</b>`);
   function hConceptStats(u) {
     let n = 0, ok = 0;
-    u.sections.forEach((sec, si) => { sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[`h${u.no}:c:${si}`]; if (r) ok += r.ok; });
+    u.sections.forEach((sec, si) => { if (sec.off) return; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[`h${u.no}:c:${si}`]; if (r) ok += r.ok; });
     return { n, ok };
   }
   function hQuizStats(u) {
     let done = 0, ok = 0;
-    u.questions.forEach((_, i) => { const r = S.qa[`h:${u.no}:${i}`]; if (r) { done++; if (r.ok) ok++; } });
-    return { done, ok, total: u.questions.length };
+    u.questions.forEach((q, i) => { if (q.off) return; const r = S.qa[`h:${u.no}:${i}`]; if (r) { done++; if (r.ok) ok++; } });
+    return { done, ok, total: u.questions.filter((q) => !q.off).length }; // 범위 밖(off) 문제는 셈에서 뺌
   }
-  const hFlowDone = (u) => (u.flows || []).filter((_, i) => (S.dm || {})[`flow:h${u.no}:f:${i}`]).length;
+  const hFlowDone = (u) => (u.flows || []).filter((f, i) => !f.off && (S.dm || {})[`flow:h${u.no}:f:${i}`]).length;
 
   function hhome(U) {
-    const c = hConceptStats(U), tk = U.terms.filter((x) => S.known[htid(U, x)]).length, q = hQuizStats(U), fl = U.flows || [];
+    const c = hConceptStats(U), tk = U.terms.filter((x) => S.known[htid(U, x)]).length, q = hQuizStats(U), fl = (U.flows || []).filter((f) => !f.off);
     const step = (tab, no, t, d, a, b, unit = '') => `
       <button class="route" data-go="${tab}" type="button">
         <span class="route-no ${b && a >= b ? 'done' : ''}">${b && a >= b ? '✓' : no}</span>
@@ -1422,7 +1423,7 @@
       <section class="banner"><div><h1>${esc(U.code)}. ${esc(U.title)}</h1><p>${esc(HIST.textbook)} · ${esc(U.big || '')}</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
       <div class="routes">
-        ${step('hconcept', 1, '개념 정리', U.sections.map((x) => x.title.replace(/^\d+\.\s*/, '')).join(' · '), c.ok, c.n, '칸')}
+        ${step('hconcept', 1, '개념 정리', U.sections.filter((x) => !x.off).map((x) => x.title.replace(/^\d+\.\s*/, '')).join(' · '), c.ok, c.n, '칸')}
         ${step('hterms', 2, '핵심 용어', '목록 · 카드 · 고르기 · 쓰기', tk, U.terms.length, ' 외움')}
         ${fl.length ? step('hflow', 3, '흐름 잇기', fl.map((f) => f.title).join(' · '), hFlowDone(U), fl.length, '개') : ''}
         ${step('hquiz', fl.length ? 4 : 3, '실전 문제', '학교 시험처럼 객관식 + 서술형', q.ok, q.total, ' 맞힘')}
@@ -1435,12 +1436,12 @@
   function hconcept(U) {
     const tabs = seg('hc', [['read', '읽기'], ['cloze', '빈칸 채우기']], UI.hc || 'read');
     if ((UI.hc || 'read') === 'read') {
-      main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '굵은 글씨가 시험에 나오는 핵심어예요', tabs) + U.sections.map((sec) => `
+      main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '굵은 글씨가 시험에 나오는 핵심어예요', tabs) + U.sections.filter((x) => !x.off).map((sec) => `
         <section class="card hsec"><h3>${esc(sec.title)}</h3>${sec.blocks.map(hBlock).join('')}</section>`).join('');
       return;
     }
     let n = 0;
-    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + U.sections.map((sec, si) => {
+    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + U.sections.map((sec, si) => { if (sec.off) return '';
       const rows = sec.blocks.filter((b) => b.pts).map((b) => `<div class="wsub">${esc(b.h)}</div>` + b.pts.map((p) => {
         const ans = [...p.matchAll(/\{([^}]+)\}/g)].map((m) => m[1].replace(/\|/g, '/'));
         const q = p.replace(/\{[^}]+\}/g, '______');
@@ -1529,6 +1530,7 @@
     const F = U.flows || [];
     main.innerHTML = head(`흐름 잇기 · ${esc(U.code)}`, '낱장을 눌러 일어난 순서대로 놓아요. 잘못 놓은 건 다시 누르면 돌아가요.') +
       `<div class="list">${F.map((f, fi) => {
+        if (f.off) return ''; // 범위 밖 흐름
         const id = `h${U.no}:f:${fi}`, done = (S.dm || {})['flow:' + id] && !UI.redo[id];
         if (done) return `<section class="card hflow done"><h3>${esc(f.title)}</h3><ol class="htl">${f.steps.map((x) => `<li>${x.y ? `<b>${esc(x.y)}</b>` : ''}<span>${esc(x.t)}</span></li>`).join('')}</ol><div class="verdict ok">✓ 완료 <button class="link" data-redo="${id}" type="button">다시 해 보기</button></div></section>`;
         const sh = shuffle(f.steps.map((x, i) => ({ t: x.t, i })), id);
@@ -1557,7 +1559,7 @@
   function hPool(U) {
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
     const sc = UI.hquizScope || 'one';
-    const one = (u) => u.questions.map((q, i) => qByKey(`h:${u.no}:${i}`));
+    const one = (u) => u.questions.map((q, i) => (q.off ? null : qByKey(`h:${u.no}:${i}`)));
     const src = sc === 'exam' ? HEXAMS.filter((e) => (UI.hexamSet || 'all') === 'all' || e.id === UI.hexamSet).flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
     const cat = UI.hquizCat || '전체';
     return src.filter(Boolean).filter(({ q }) => cat === '전체' || (cat === '서술형' ? q.type === 'short' || q.type === 'essay' : q.cat === cat && q.type === 'mc'));
@@ -1566,7 +1568,7 @@
     UI.hquizScope = UI.hquizScope || (HEXAMS.length ? 'exam' : 'one');
     if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = { pool: UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool) : pool, i: 0, picks: {} }; }
     const Q = UI.hquiz, st = hQuizStats(U);
-    const scopes = [...(HEXAMS.length ? [['exam', `기출 시험지 (${HEXAMS.reduce((n, e) => n + e.questions.filter((q) => !hideQ(q)).length, 0)})`]] : []), ['one', `이 단원 (${U.questions.length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
+    const scopes = [...(HEXAMS.length ? [['exam', `기출 시험지 (${HEXAMS.reduce((n, e) => n + e.questions.filter((q) => !hideQ(q)).length, 0)})`]] : []), ['one', `이 단원 (${U.questions.filter((q) => !q.off).length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
     const ex = HEXAMS.find((e) => e.id === UI.hexamSet);
     let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `출처: ${esc(ex.source || '')}` : '기출비 카페에서 받은 시험지를 섞어서') : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>` +
@@ -1640,9 +1642,11 @@
       return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
     }
     // 역사 숙제 — 개념 빈칸 · 핵심 용어 · 실전 문제
-    if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit), st = U ? hConceptStats(U) : { n: 0, ok: 0 }; return { ok: st.n > 0 && st.ok >= st.n, txt: `${st.ok}/${st.n}칸 맞힘` }; }
+    const since = (c) => (c.since ? new Date(c.since + 'T00:00:00').getTime() : 0); // 2·3회차: 그날 다시 풀어야 함
+    if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit); if (!U) return { ok: false, txt: '' }; let n = 0, ok = 0; U.sections.forEach((sec, si) => { if (sec.off) return; const id = `h${U.no}:c:${si}`; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[id]; if (r && ((S.wsAt || {})[id] || 0) >= since(c)) ok += r.ok; }); return { ok: n > 0 && ok >= n, txt: `${ok}/${n}칸 맞힘${c.since ? ' (다시)' : ''}` }; }
     if (c.type === 'hterms') { const U = ALLU.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
-    if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), st = U ? hQuizStats(U) : { done: 0, ok: 0 }, all = U ? U.questions.length : 0; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
+    if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), ks = U ? U.questions.map((q, i) => (q.off ? null : `h:${U.no}:${i}`)).filter(Boolean) : [], dn = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), st = { done: dn.length, ok: dn.filter((k) => S.qa[k].ok).length }, all = ks.length; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
+    if (c.type === 'hexam') { const e = ALLX.find((x) => x.id === c.id), ks = e ? e.questions.map((q, i) => (q.off ? null : `hx:${e.id}:${i}`)).filter(Boolean) : [], done = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), ok = done.filter((k) => S.qa[k].ok).length; return { ok: ks.length > 0 && done.length >= ks.length, txt: `${done.length}/${ks.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).length; return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
     return { ok: false, txt: '' };
   }
@@ -1694,6 +1698,8 @@
     UI.paras = g.paras || null; UI.partName = g.partName || null; // 그날 외울 부분만
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     if (g.hquizScope) { UI.hquizScope = g.hquizScope; UI.hquiz = null; }
+    if (g.hexamSet) UI.hexamSet = g.hexamSet;
+    t.checks.forEach((c) => { if (c.type === 'hconcept' && c.since) { const U = ALLU.find((u) => u.no === c.unit), t0 = new Date(c.since + 'T00:00:00').getTime(); if (U && S.wsv) U.sections.forEach((_, si) => { const id = `h${U.no}:c:${si}`; if (((S.wsAt || {})[id] || 0) < t0) delete S.wsv[id]; }); } }); // 다시 보는 날은 빈칸부터
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
