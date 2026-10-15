@@ -1813,6 +1813,14 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 /* 메뉴가 화면보다 길면(지원: 유닛이 많음) 왼쪽 메뉴 안에서 스크롤 → 맨 아래 로그아웃까지 닿게 */
 @media (min-width: 561px) { :root[data-kid="jua"] .sidebar { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; } }
 :root[data-kid="jua"][data-sub="jiwon"] .jua-sec h2::before { content: none; }
+/* 과학은 파랑·보라 계열 */
+:root[data-subj="sci"] {
+  --accent: #5b5bd6; --accent-2: #9b9bf0; --accent-soft: #ececfd;
+  --banner: linear-gradient(115deg, #a9b4ff, #c3c8ff 40%, #e0e2ff 70%, #f4f5ff); --banner-ink: #2c2c8f;
+  --shadow: 0 1px 2px rgba(23, 33, 58, 0.04), 0 8px 24px rgba(91, 91, 214, 0.08);
+}
+@media (prefers-color-scheme: dark) {:root:not([data-theme="light"])[data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
+}
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
@@ -1854,6 +1862,8 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 
 :root[data-theme="dark"][data-kid="jua"]:not([data-theme="light"]) { --bg: #1d1218; --card: #2a1922; --line: #4a2a3a; --line-soft: #3a2230; --accent: #ff8fc0; --accent-2: #ff6fae; --accent-soft: #3d2030; --ok: #ff8fc0; } 
 :root[data-theme="dark"][data-kid="jua"][data-sub="jiwon"]:not([data-theme="light"]) { --bg: #10141f; --card: #181e2c; --line: #2a3349; --line-soft: #1f2638; --accent: #8ea2ff; --accent-2: #6f86f5; --accent-soft: #222c47; --ok: #4fc08d; } 
+:root[data-theme="dark"][data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
+
 :root:not([data-theme="light"]) { } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } } :root[data-theme="dark"] { color-scheme: dark; }
 
 /* Artifact: 휴대폰 safe-area 안쪽에서 */ .sidebar { padding-top: max(22px, env(safe-area-inset-top, 0px)); } @media (max-width: 560px) { .main { padding: 14px 16px 60px; } .page-head h2 { font-size: 19px; } .seg button { padding: 7px 10px; font-size: 12.5px; } }

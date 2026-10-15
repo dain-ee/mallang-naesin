@@ -9,15 +9,19 @@
   { const bm = document.getElementById('boot-msg'); if (bm) bm.remove(); } // 웹 버전의 '불러오는 중' 안내
   const LESSONS = DATA.lessons;
   const EXAMS = DATA.exams || [];
-  const HIST = DATA.history || null; // 역사 (단원·용어·흐름·문제)
-  const HUNITS = HIST ? HIST.units : [], HEXAMS = HIST ? HIST.exams || [] : [];
+  // 역사·과학 — 같은 틀(개념 빈칸·핵심 용어·흐름·실전 문제)을 과목만 바꿔 씀. 단원 번호는 과목끼리 겹치지 않게(역사 2·3, 과학 5·6)
+  const SUBJ = { hist: DATA.history || null, sci: DATA.science || null }, SUBJ_NAME = { en: '영어', hist: '역사', sci: '과학' };
+  const ALLU = [...((SUBJ.hist || {}).units || []), ...((SUBJ.sci || {}).units || [])], ALLX = [...((SUBJ.hist || {}).exams || []), ...((SUBJ.sci || {}).exams || [])];
+  const subjOfUnit = (no) => (((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist');
+  let HIST = null, HUNITS = [], HEXAMS = []; // 지금 고른 과목(역사 또는 과학)의 자료
+  function useSubj() { const d = SUBJ[S.subj] || SUBJ.hist; HIST = d; HUNITS = d ? d.units : []; HEXAMS = d ? d.exams || [] : []; }
   const PERF = DATA.perf || null; // 수행평가 원고 — 홈·숙제 맨 위 배너
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
   // 문제 키 → 문제. 'ex:시험지:번호' 는 기출 시험지, '과:번호' 는 직접 만든 문제.
   function qByKey(k) {
     const p = k.split(':');
-    if (p[0] === 'h') { const U = HUNITS.find((u) => u.no === +p[1]), q = U && U.questions[+p[2]]; return q ? { q, key: k, no: U.no, lab: U.code, hist: true } : null; }
-    if (p[0] === 'hx') { const e = HEXAMS.find((x) => x.id === p[1]), q = e && e.questions[+p[2]]; const U = q && HUNITS.find((u) => u.no === q.unit); return q ? { q, key: k, no: q.unit, lab: U ? U.code : '', src: e.title, hist: true } : null; }
+    if (p[0] === 'h') { const U = ALLU.find((u) => u.no === +p[1]), q = U && U.questions[+p[2]]; return q ? { q, key: k, no: U.no, lab: U.code, hist: true } : null; }
+    if (p[0] === 'hx') { const e = ALLX.find((x) => x.id === p[1]), q = e && e.questions[+p[2]]; const U = q && ALLU.find((u) => u.no === q.unit); return q ? { q, key: k, no: q.unit, lab: U ? U.code : '', src: e.title, hist: true } : null; }
     if (p[0] === 'ex') { const e = EXAMS.find((x) => x.id === p[1]) || EXAMS[+p[1]], q = e && e.questions[+p[2]]; return q ? { q, key: k, no: q.lesson, src: e.title } : null; }
     const L = LESSONS.find((l) => l.no === +p[0]); return L && L.questions[+p[1]] ? { q: L.questions[+p[1]], key: k, no: L.no } : null;
   }
@@ -25,9 +29,11 @@
 
   // ───────── 기록 ─────────
   const S = Object.assign(
-    { who: '윤건', subj: 'en', hunit: HUNITS[0] ? HUNITS[0].no : 2, lesson: LESSONS[0] ? LESSONS[0].no : 5, tab: 'home', mem: {}, known: {}, qa: {}, wrong: {} },
+    { who: '윤건', subj: 'en', hunit: ALLU[0] ? ALLU[0].no : 2, lesson: LESSONS[0] ? LESSONS[0].no : 5, tab: 'home', mem: {}, known: {}, qa: {}, wrong: {} },
     read()
   );
+  if (S.subj !== 'en' && !SUBJ[S.subj]) S.subj = 'en';
+  useSubj();
   function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } }
   let saveFailed = false;
   function save(local) { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { if (!saveFailed) { saveFailed = true; setTimeout(storageWarn, 0); } } if (!local && typeof schedulePush === 'function') schedulePush(); }
@@ -54,7 +60,8 @@
   // 지문에는 밑줄·굵게만 허용합니다.
   const rich = (s) => esc(s).replace(/&lt;(\/?)(u|b)&gt;/g, '<$1$2>');
   const lesson = () => LESSONS.find((l) => l.no === S.lesson) || LESSONS[0];
-  const isHist = () => !!HIST && S.subj === 'hist';
+  const isHist = () => !!SUBJ[S.subj]; // 역사 또는 과학 화면 (영어가 아닌 과목)
+  const SN = () => SUBJ_NAME[S.subj] || '역사';
   const hunit = () => HUNITS.find((u) => u.no === S.hunit) || HUNITS[0];
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
@@ -67,7 +74,7 @@
   // 푼 것은 S.log 에 하나씩 쌓습니다(날짜·과·갈래·맞힘). 기록 탭이 이걸 그대로 보여 줍니다.
   function logEv(kind, ok, total, label) {
     S.log = S.log || [];
-    S.log.push(isHist() ? { at: Date.now(), sj: 'hist', l: S.hunit, k: kind, ok, n: total, t: String(label || '').slice(0, 80) } : { at: Date.now(), l: S.lesson, k: kind, ok, n: total, t: String(label || '').slice(0, 80) });
+    S.log.push(isHist() ? { at: Date.now(), sj: S.subj, l: S.hunit, k: kind, ok, n: total, t: String(label || '').slice(0, 80) } : { at: Date.now(), l: S.lesson, k: kind, ok, n: total, t: String(label || '').slice(0, 80) });
     if (S.log.length > 5000) S.log = S.log.slice(-5000);
     save();
   }
@@ -206,17 +213,17 @@
   function syncSide() {
     const hs = isHist();
     document.documentElement.dataset.lesson = hs ? '' : S.lesson;
-    document.documentElement.dataset.subj = hs ? 'hist' : 'en';
-    const navKey = (hs ? 'h' : 'e') + (HW && !hs ? 1 : 0);
+    document.documentElement.dataset.subj = hs ? S.subj : 'en';
+    const navKey = (hs ? 'h' + S.subj : 'e') + (HW && !hs ? 1 : 0);
     if ($('#nav').dataset.k !== navKey) {
       $('#nav').dataset.k = navKey;
       $('#nav').innerHTML = (hs ? '' : `<button class="nav-item" data-tab="hw" type="button" id="nav-hw" hidden><i class="ni">✎</i>숙제<span id="hw-tally" class="tally" hidden>0</span></button>` + (PERF ? `<button class="nav-item" data-tab="perf" type="button"><i class="ni">✍</i>수행평가</button>` : '')) +
         NAV[hs ? 'hist' : 'en'].map(([t, i, n]) => `<button class="nav-item" data-tab="${t}" type="button"><i class="ni">${i}</i>${n}</button>`).join('') +
         `<button class="nav-item" data-tab="wrong" type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button><button class="nav-item" data-tab="log" type="button"><i class="ni">✓</i>기록</button>`;
     }
-    if (HIST) { $('#subj').hidden = false; document.querySelectorAll('#subj [data-subj]').forEach((b) => b.classList.toggle('on', b.dataset.subj === (hs ? 'hist' : 'en'))); }
+    if (SUBJ.hist || SUBJ.sci) { $('#subj').hidden = false; document.querySelectorAll('#subj [data-subj]').forEach((b) => { b.hidden = b.dataset.subj !== 'en' && !SUBJ[b.dataset.subj]; b.classList.toggle('on', b.dataset.subj === (hs ? S.subj : 'en')); }); }
     const L = lesson(), U = hunit();
-    $('#lesson-sub').textContent = hs ? (U ? `역사 ${U.code} · ${U.title}` : '자료 없음') : L ? `${L.no}과 · ${L.title}` : '자료 없음';
+    $('#lesson-sub').textContent = hs ? (U ? `${SN()} ${U.code} · ${U.title}` : '자료 없음') : L ? `${L.no}과 · ${L.title}` : '자료 없음';
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === S.tab));
     const schNav = document.querySelector('.nav-item[data-tab="school"]'); if (schNav) schNav.hidden = hs || !(L && L.school);
     const w = wrongKeys().length; const t = $('#wrong-tally'); t.hidden = !w; t.textContent = w;
@@ -253,7 +260,8 @@
   function setSubj(sj) {
     if (sj === S.subj) return;
     S.subj = sj; UI.test = null; UI.quiz = null; UI.htest = null; UI.hquiz = null; UI.quizOnly = null;
-    if (!['wrong', 'log'].includes(S.tab) || (S.tab === 'hw' && sj === 'hist')) S.tab = sj === 'hist' ? 'hhome' : 'home';
+    useSubj(); if (isHist() && !HUNITS.some((u) => u.no === S.hunit) && HUNITS[0]) S.hunit = HUNITS[0].no; // 과목마다 자기 단원으로
+    if (!['wrong', 'log'].includes(S.tab) || (S.tab === 'hw' && sj !== 'en')) S.tab = sj !== 'en' ? 'hhome' : 'home';
     save(true); render(); window.scrollTo(0, 0);
   }
   function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.htest = null; UI.hquiz = null; save(true); render(); }
@@ -271,6 +279,7 @@
   // ───────── 그리기 ─────────
   let lastView = '';
   function render() {
+    useSubj();
     syncSide();
     if (isHist()) {
       if (S.tab === 'hw' || (!['wrong', 'log'].includes(S.tab) && !S.tab.startsWith('h'))) S.tab = 'hhome';
@@ -1631,9 +1640,9 @@
       return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
     }
     // 역사 숙제 — 개념 빈칸 · 핵심 용어 · 실전 문제
-    if (c.type === 'hconcept') { const U = HUNITS.find((u) => u.no === c.unit), st = U ? hConceptStats(U) : { n: 0, ok: 0 }; return { ok: st.n > 0 && st.ok >= st.n, txt: `${st.ok}/${st.n}칸 맞힘` }; }
-    if (c.type === 'hterms') { const U = HUNITS.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
-    if (c.type === 'hquiz') { const U = HUNITS.find((u) => u.no === c.unit), st = U ? hQuizStats(U) : { done: 0, ok: 0 }, all = U ? U.questions.length : 0; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
+    if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit), st = U ? hConceptStats(U) : { n: 0, ok: 0 }; return { ok: st.n > 0 && st.ok >= st.n, txt: `${st.ok}/${st.n}칸 맞힘` }; }
+    if (c.type === 'hterms') { const U = ALLU.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
+    if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), st = U ? hQuizStats(U) : { done: 0, ok: 0 }, all = U ? U.questions.length : 0; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
     if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).length; return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
     return { ok: false, txt: '' };
   }
@@ -1665,7 +1674,7 @@
   function hwGo(t) {
     let g = t.go || {};
     UI.hwT = t; delete document.documentElement.dataset.navopen;
-    S.subj = g.subj === 'hist' ? 'hist' : 'en';
+    S.subj = SUBJ[g.subj] ? g.subj : 'en'; useSubj();
     if (g.unit) S.hunit = g.unit;
     ['hc', 'ht'].forEach((k) => { if (g[k]) UI[k] = g[k]; });
     if (g.lesson && g.lesson !== S.lesson) { S.lesson = g.lesson; UI.rpart = 0; }
@@ -1715,7 +1724,7 @@
   }
   // 숙제하는 동안: 큰 메뉴 대신 오늘 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {
-    const on = HW && UI.hwT && S.tab !== 'hw' && (!isHist() || (UI.hwT.go || {}).subj === 'hist'); // 숙제 하나에 들어갔을 때만 (역사 숙제로 들어온 역사 화면 포함)
+    const on = HW && UI.hwT && S.tab !== 'hw' && (!isHist() || (UI.hwT.go || {}).subj === S.subj); // 숙제 하나에 들어갔을 때만 (역사 숙제로 들어온 역사 화면 포함)
     if (on) document.documentElement.dataset.hwmode = 1; else { delete document.documentElement.dataset.hwmode; delete document.documentElement.dataset.navopen; }
     if (!on) return;
     const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
@@ -1788,10 +1797,10 @@
       <div class="stat"><div class="k">연속 공부</div><div class="val">${streak}<em>일째</em></div></div>
       <div class="stat"><div class="k">전체 정답률</div><div class="val">${an ? pct(aok, an) : 0}<em>%</em></div></div>
       <div class="stat"><div class="k">오답노트</div><div class="val">${Object.keys(S.wrong).length}<em>문제</em></div></div></div>`;
-    if (HIST) html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">역사 단원별 진도</h3>${HUNITS.map((u) => {
+    ['hist', 'sci'].filter((k) => SUBJ[k]).forEach((sk) => html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">${SUBJ_NAME[sk]} 단원별 진도</h3>${SUBJ[sk].units.map((u) => {
       const c = hConceptStats(u), t = u.terms.filter((x) => S.known[htid(u, x)]).length, q = hQuizStats(u);
       return `<div class="lrow"><b>${esc(u.code)}</b><span>개념 빈칸 ${c.n ? `${c.ok}/${c.n}칸` : '—'}</span><span>용어 ${t}/${u.terms.length}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>`);
     html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">영어 과별 진도</h3>${LESSONS.map((l) => {
       const q = quizStats(l), ws = wordsOf(l), kn = ws.filter((w) => S.known[wid(l, w)]).length;
       const wsd = Object.entries(S.ws || {}).filter(([k]) => k.startsWith(l.no + ':'));
@@ -1802,7 +1811,7 @@
     if (!keys.length) html += `<div class="empty">아직 기록이 없어요. 아무 문제나 하나 풀면 여기에 바로 남아요 👻</div>`;
     keys.slice(0, 30).forEach((k) => {
       const arr = days[k], [o, n] = sum(arr), d = new Date(k);
-      const groups = {}; arr.forEach((e) => { const g = `${e.sj === 'hist' ? `역사 ${(HUNITS.find((u) => u.no === e.l) || {}).code || e.l}` : `${e.l}과`} · ${e.k}`; (groups[g] = groups[g] || [0, 0, 0]); groups[g][0] += e.ok; groups[g][1] += e.n; groups[g][2]++; });
+      const groups = {}; arr.forEach((e) => { const g = `${SUBJ[e.sj] ? `${SUBJ_NAME[e.sj]} ${(ALLU.find((u) => u.no === e.l) || {}).code || e.l}` : `${e.l}과`} · ${e.k}`; (groups[g] = groups[g] || [0, 0, 0]); groups[g][0] += e.ok; groups[g][1] += e.n; groups[g][2]++; });
       const misses = arr.filter((e) => e.ok < e.n && e.t).slice(-12);
       html += `<div class="card logday"><div class="logday-h"><b>${d.getMonth() + 1}월 ${d.getDate()}일 (${wd[d.getDay()]})</b><span class="badge ${n && o === n ? 'ok' : ''}">${o} / ${n} 맞힘 · ${pct(o, n)}%</span></div>
         <div class="loggrid">${Object.entries(groups).map(([g, v]) => `<div class="logg"><span>${esc(g)}</span><b>${v[0]}/${v[1]}</b></div>`).join('')}</div>
@@ -1823,13 +1832,14 @@
 
   // ───────── 오답노트 ─────────
   // 오답 키 — 역사는 'h:' / 'hx:' 로 시작합니다.
-  const wrongKeys = () => Object.keys(S.wrong).filter((k) => /^hx?:/.test(k) === isHist());
+  const keySubj = (k) => { if (!/^hx?:/.test(k)) return 'en'; const x = qByKey(k); return x ? subjOfUnit(x.no) : 'hist'; };
+  const wrongKeys = () => Object.keys(S.wrong).filter((k) => keySubj(k) === (isHist() ? S.subj : 'en'));
   function wrong() {
     if (!UI.wrongPicks) UI.wrongPicks = {};
     if (!UI.wrongSeen) UI.wrongSeen = []; // 이번에 오답노트에서 푼 문제 — 빠져도 이 화면에서는 「빠짐」으로 남겨 둠
-    const keys = [...new Set([...wrongKeys(), ...UI.wrongSeen.filter((k) => /^hx?:/.test(k) === isHist())])];
+    const keys = [...new Set([...wrongKeys(), ...UI.wrongSeen.filter((k) => keySubj(k) === (isHist() ? S.subj : 'en'))])];
     const items = keys.map(qByKey).filter(Boolean);
-    let html = head(isHist() ? '오답노트 · 역사' : '오답노트', `${isHist() ? '역사' : '영어 5~8과'}에서 틀린 문제가 모여요. 다시 맞힌 문제는 다음에 들어올 때 빠져요.`);
+    let html = head(isHist() ? `오답노트 · ${SN()}` : '오답노트', `${isHist() ? SN() : '영어 5~8과'}에서 틀린 문제가 모여요. 다시 맞힌 문제는 다음에 들어올 때 빠져요.`);
     if (!items.length) { main.innerHTML = html + `<div class="empty">아직 틀린 문제가 없어요 👻</div>`; return; }
     const streak = (k) => (k in S.wrong ? S.wrong[k] : 2);
     html += `<div class="qwrap list">${items.map((it, n) => { const p = UI.wrongPicks[it.key], st = streak(it.key);
