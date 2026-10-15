@@ -1630,6 +1630,10 @@
       const done = keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length;
       return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
     }
+    // 역사 숙제 — 개념 빈칸 · 핵심 용어 · 실전 문제
+    if (c.type === 'hconcept') { const U = HUNITS.find((u) => u.no === c.unit), st = U ? hConceptStats(U) : { n: 0, ok: 0 }; return { ok: st.n > 0 && st.ok >= st.n, txt: `${st.ok}/${st.n}칸 맞힘` }; }
+    if (c.type === 'hterms') { const U = HUNITS.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
+    if (c.type === 'hquiz') { const U = HUNITS.find((u) => u.no === c.unit), st = U ? hQuizStats(U) : { done: 0, ok: 0 }, all = U ? U.questions.length : 0; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
     if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).length; return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
     return { ok: false, txt: '' };
   }
@@ -1642,7 +1646,7 @@
       .filter(({ q }) => (q.lesson == null || q.lesson === lesson) && !hideQ(q));
     const txt = (q) => `${q.q} ${q.passage || ''} ${Array.isArray(q.choices) ? q.choices.join(' ') : ''}`;
     const part = (q) => Object.keys(PART_RE).filter((p) => PART_RE[p].test(txt(q)));
-    return all.filter(({ q }) => tags.some((t) => (t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : t === 'GM' ? !part(q).length && q.cat === '문법' : part(q).includes(t)))).map((x) => x.key); // GM = 문법만
+    return all.filter(({ q }) => tags.some((t) => (t === 'RD' ? q.cat === '본문' : t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : t === 'GM' ? !part(q).length && q.cat === '문법' : part(q).includes(t)))).map((x) => x.key); // GM = 문법만
   }
   function hwEnsurePicks(d) {
     if (TEACHER) return;
@@ -1680,6 +1684,7 @@
     UI.noteReview = !!g.review;
     UI.paras = g.paras || null; UI.partName = g.partName || null; // 그날 외울 부분만
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
+    if (g.hquizScope) { UI.hquizScope = g.hquizScope; UI.hquiz = null; }
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
@@ -1710,7 +1715,7 @@
   }
   // 숙제하는 동안: 큰 메뉴 대신 오늘 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {
-    const on = HW && !isHist() && UI.hwT && S.tab !== 'hw'; // 숙제 목록 화면은 평소대로, 숙제 하나에 들어갔을 때만
+    const on = HW && UI.hwT && S.tab !== 'hw' && (!isHist() || (UI.hwT.go || {}).subj === 'hist'); // 숙제 하나에 들어갔을 때만 (역사 숙제로 들어온 역사 화면 포함)
     if (on) document.documentElement.dataset.hwmode = 1; else { delete document.documentElement.dataset.hwmode; delete document.documentElement.dataset.navopen; }
     if (!on) return;
     const today = hwToday(), list = UI.hwT && !(today && today.tasks.includes(UI.hwT)) ? hwDayOf(UI.hwT).tasks : today ? today.tasks : [];
@@ -1718,7 +1723,7 @@
     const d = hwDayOf(UI.hwT), okN = list.filter(hwTaskOk).length;
     main.insertAdjacentHTML('afterbegin', `<div class="hwbar-h"><h1>${esc(d.label.length === 1 ? d.label + '요일' : d.label)} 숙제</h1><span>${okN}/${list.length} 끝</span><button type="button" class="link" data-hwt="list">숙제 목록 ›</button></div><nav class="hwbar"><div class="hwbar-tabs">${tabs}</div></nav>`);
     const bar = main.querySelector('.hwbar-tabs'), cur = bar.querySelector('.on'); if (cur) bar.scrollLeft = cur.offsetLeft - 40;
-    main.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
+    main.querySelectorAll('[data-hwt]').forEach((b) => (b.onclick = () => { if (b.dataset.hwt === 'list') { UI.hwT = null; if (isHist()) setSubj('en'); go('hw'); } else hwGo(list[+b.dataset.hwt]); }));
     dragScroll(bar);
   }
   function hwMessage(d) {
