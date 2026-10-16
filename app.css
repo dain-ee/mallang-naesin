@@ -405,7 +405,7 @@ kbd { font: inherit; font-size: 11px; opacity: 0.75; border: 1px solid currentCo
 
 .menu {
   position: absolute; left: 0; right: 0; top: 100%;
-  z-index: 30;
+  z-index: 80; /* 숙제 띠(.hwbar, sticky z30)보다 위 — 2026-10-16 메뉴가 띠에 가려 못 누름 */
   margin-top: -8px;
   padding: 6px;
   background: var(--card);
@@ -1839,6 +1839,8 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 .hw-grp { margin: 6px 0 -2px; }
 .hw-grp:first-child { margin-top: 0; }
 .hw-close { display: block; margin: 10px 0 0 auto; }
+/* 좁은 폰: 사이드바(backdrop-filter 로 쌓임 맥락이 생김)가 숙제 띠(sticky z30) 밑으로 깔려 과 메뉴가 가려지던 것 (2026-10-16) */
+@media (max-width: 560px) { .sidebar { position: relative; z-index: 40; } }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

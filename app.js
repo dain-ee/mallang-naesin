@@ -1283,11 +1283,16 @@
     if (!UI.quiz) { const pool = qPool(L); UI.quiz = { pool: UI.quizScope === 'all' || (UI.quizScope === 'exam' && UI.examSet === 'all') ? shuffle(pool) : pool, i: 0, picks: {} }; }
     const Q = UI.quiz;
     const st = quizStats(L);
-    let html = head(`실전 문제${UI.quizScope === 'exam' ? ' · 기출 시험지' : UI.quizScope === 'all' ? ' · 5~8과 섞어서' : ` · ${L.no}과`}`, UI.quizScope === 'exam' ? (UI.examSet === 'all' ? `기출비 카페에서 골라 낸 좋은 문제 ${EXAMS.reduce((n, e) => n + e.questions.filter((q) => !hideQ(q)).length, 0)}개를 섞어서` : `출처: ${esc((EXAMS.find((e) => e.id === UI.examSet) || {}).source || '')}`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘`,
+    // 숙제로 들어오면 숙제 문제 수만 보이게 — 다른 묶음 숫자(270·20…)는 숨김 (2026-10-16 선생님: 화면 20문제·숙제 10문제면 헷갈림)
+    let html;
+    if (UI.quizOnly) html = head(`숙제 문제 ${Q.pool.length}개`, '이 문제만 풀면 끝이에요', `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
+      `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
+    else {
+    html = head(`실전 문제${UI.quizScope === 'exam' ? ' · 기출 시험지' : UI.quizScope === 'all' ? ' · 5~8과 섞어서' : ` · ${L.no}과`}`, UI.quizScope === 'exam' ? (UI.examSet === 'all' ? `기출비 카페에서 골라 낸 좋은 문제 ${EXAMS.reduce((n, e) => n + e.questions.filter((q) => !hideQ(q)).length, 0)}개를 섞어서` : `출처: ${esc((EXAMS.find((e) => e.id === UI.examSet) || {}).source || '')}`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘`,
       `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="bar-row">${seg('quizScope', [...(EXAMS.length ? [['exam', `기출 시험지 (${EXAMS.reduce((a, e) => a + e.questions.filter((q) => !hideQ(q)).length, 0)})`]] : []), ['one', '이 단원 (직접 만든 문제)'], ['all', '5~8과 섞기']], UI.quizScope)}${seg('quizCat', CATS.map((c) => [c, c]), UI.quizCat)}</div>` +
       (UI.quizScope === 'exam' && EXAMS.length > 1 ? `<div class="bar-row">${seg('examSet', [['all', '전체 섞기'], ...EXAMS.map((e) => [e.id, `${e.title} (${e.questions.filter((q) => !hideQ(q)).length})`])], UI.examSet)}</div>` : '');
-    if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
+    }
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; bindQuizTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
     const answered = Object.values(Q.picks); const okN = answered.filter((r) => r.ok).length;
