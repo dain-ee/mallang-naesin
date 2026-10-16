@@ -265,7 +265,7 @@
     if (!['wrong', 'log'].includes(S.tab) || (S.tab === 'hw' && sj !== 'en')) S.tab = sj !== 'en' ? 'hhome' : 'home';
     save(true); render(); window.scrollTo(0, 0);
   }
-  function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.htest = null; UI.hquiz = null; save(true); render(); }
+  function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.hsecs = null; UI.htest = null; UI.hquiz = null; save(true); render(); }
   function setLesson(no) { if (no !== S.lesson) loading(no); S.lesson = no; UI.rpart = 0; UI.card = 0; UI.cardFlip = false; UI.test = null; UI.quiz = null; save(); render(); }
   function go(tab) { if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
 
@@ -1434,14 +1434,17 @@
 
   // ───────── 개념 정리 ─────────
   function hconcept(U) {
-    const tabs = seg('hc', [['read', '읽기'], ['cloze', '빈칸 채우기']], UI.hc || 'read');
+    const hs = UI.hsecs && UI.hsecs.u === U.no ? UI.hsecs.secs : null, inHw = (si) => !hs || hs.includes(si);
+    const tabs = seg('hc', [['read', '읽기'], ['cloze', '빈칸 채우기']], UI.hc || 'read'), hsb =
+      (hs ? `<div class="hw-banner">📌 오늘 숙제는 ${hs.map((si) => '①②③④⑤⑥⑦⑧⑨'[(parseInt(U.sections[si].title, 10) || si + 1) - 1]).join('·')}만 <button class="link" id="hs-all" type="button">전체 보기</button></div>` : '');
+    const bindHs = () => { const b = $('#hs-all'); if (b) b.onclick = () => { UI.hsecs = null; render(); }; };
     if ((UI.hc || 'read') === 'read') {
-      main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '굵은 글씨가 시험에 나오는 핵심어예요', tabs) + U.sections.filter((x) => !x.off).map((sec) => `
+      main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '굵은 글씨가 시험에 나오는 핵심어예요', tabs) + hsb + U.sections.map((sec, si) => sec.off || !inHw(si) ? '' : `
         <section class="card hsec"><h3>${esc(sec.title)}</h3>${sec.blocks.map(hBlock).join('')}</section>`).join('');
-      return;
+      bindHs(); return;
     }
     let n = 0;
-    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + U.sections.map((sec, si) => { if (sec.off) return '';
+    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + hsb + U.sections.map((sec, si) => { if (sec.off || !inHw(si)) return '';
       const rows = sec.blocks.filter((b) => b.pts).map((b) => `<div class="wsub">${esc(b.h)}</div>` + b.pts.map((p) => {
         const ans = [...p.matchAll(/\{([^}]+)\}/g)].map((m) => m[1].replace(/\|/g, '/'));
         const q = p.replace(/\{[^}]+\}/g, '______');
@@ -1449,7 +1452,7 @@
       }).join('')).join('');
       return part(`h${U.no}:c:${si}`, LETTERS[si], sec.title, rows);
     }).join('');
-    bindWs(U);
+    bindWs(U); bindHs();
   }
   function hBlock(b) {
     let h = b.h ? `<div class="hblock-h">${esc(b.h)}</div>` : '';
@@ -1643,11 +1646,12 @@
     }
     // 역사 숙제 — 개념 빈칸 · 핵심 용어 · 실전 문제
     const since = (c) => (c.since ? new Date(c.since + 'T00:00:00').getTime() : 0); // 2·3회차: 그날 다시 풀어야 함
-    if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit); if (!U) return { ok: false, txt: '' }; let n = 0, ok = 0; U.sections.forEach((sec, si) => { if (sec.off) return; const id = `h${U.no}:c:${si}`; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[id]; if (r && ((S.wsAt || {})[id] || 0) >= since(c)) ok += r.ok; }); return { ok: n > 0 && ok >= n, txt: `${ok}/${n}칸 맞힘${c.since ? ' (다시)' : ''}` }; }
+    if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit); if (!U) return { ok: false, txt: '' }; let n = 0, ok = 0; U.sections.forEach((sec, si) => { if (sec.off || (c.secs && !c.secs.includes(si))) return; const id = `h${U.no}:c:${si}`; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[id]; if (r && ((S.wsAt || {})[id] || 0) >= since(c)) ok += r.ok; }); return { ok: n > 0 && ok >= n, txt: `${ok}/${n}칸 맞힘${c.since ? ' (다시)' : ''}` }; }
     if (c.type === 'hterms') { const U = ALLU.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
     if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), ks = U ? U.questions.map((q, i) => (q.off ? null : `h:${U.no}:${i}`)).filter(Boolean) : [], dn = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), st = { done: dn.length, ok: dn.filter((k) => S.qa[k].ok).length }, all = ks.length; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
     if (c.type === 'hexam') { const e = ALLX.find((x) => x.id === c.id), ks = e ? e.questions.map((q, i) => (q.off ? null : `hx:${e.id}:${i}`)).filter(Boolean) : [], done = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), ok = done.filter((k) => S.qa[k].ok).length; return { ok: ks.length > 0 && done.length >= ks.length, txt: `${done.length}/${ks.length}문제 풂 · ${ok}개 맞힘` }; }
-    if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).length; return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
+    if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).filter((k) => !c.since || ((S.qa[k] || {}).at || 0) >= since(c)).length; // 그날 틀린 것만 (예전 오답이 남아 있어도 오늘 숙제는 끝낼 수 있게)
+      return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }
     return { ok: false, txt: '' };
   }
   // 오답노트 비우기는 그날 나머지 숙제를 다 한 뒤에만 완료로 칩니다 (처음부터 오답 0개라 저절로 체크되는 것 막기)
@@ -1699,7 +1703,8 @@
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     if (g.hquizScope) { UI.hquizScope = g.hquizScope; UI.hquiz = null; }
     if (g.hexamSet) UI.hexamSet = g.hexamSet;
-    t.checks.forEach((c) => { if (c.type === 'hconcept' && c.since) { const U = ALLU.find((u) => u.no === c.unit), t0 = new Date(c.since + 'T00:00:00').getTime(); if (U && S.wsv) U.sections.forEach((_, si) => { const id = `h${U.no}:c:${si}`; if (((S.wsAt || {})[id] || 0) < t0) delete S.wsv[id]; }); } }); // 다시 보는 날은 빈칸부터
+    const hc = t.checks.find((c) => c.type === 'hconcept' && c.secs); UI.hsecs = hc ? { u: hc.unit, secs: hc.secs } : null; // 오늘 할 절만 보이게
+    t.checks.forEach((c) => { if (c.type === 'hconcept' && c.since) { const U = ALLU.find((u) => u.no === c.unit), t0 = new Date(c.since + 'T00:00:00').getTime(); if (U && S.wsv) U.sections.forEach((_, si) => { if (c.secs && !c.secs.includes(si)) return; const id = `h${U.no}:c:${si}`; if (((S.wsAt || {})[id] || 0) < t0) delete S.wsv[id]; }); } }); // 다시 보는 날은 빈칸부터
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
     go(g.tab || 'home');
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
@@ -1757,23 +1762,35 @@
     if (justDone && !TEACHER) { save(); logEv('숙제', 1, 1, `${justDone.label} 완료`); }
     let html = perfBanner() + `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
       <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
-    const dayCards = (days) => days.map((d) => {
-      const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t;
-      return `<section class="card hw-day ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">
-        <div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${isToday ? '<span class="badge ok">오늘</span>' : ''}${late ? '<span class="badge err">밀린 숙제</span>' : ''}
-          <div class="hw-goal">${esc(d.goal)}</div></div>
-          <div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>
-        <div class="hw-tasks">${d.tasks.map((tk, i) => { const ok = hwTaskOk(tk), info = tk.checks.map((c) => hwCheck(c).txt).join(' · ');
-          return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span>
-            <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; }).join('')}</div>
+    // 과목별로 묶어서 — 오늘 것만 펼치고 나머지 날은 한 줄로 접음 (2026-10-16 선생님: 숙제가 너무 길고 지저분)
+    const tkSubj = (tk) => { const g = tk.go || {}; return g.tab === 'wrong' ? ['done', '마무리'] : g.subj === 'hist' ? ['hist', '역사'] : g.subj === 'sci' ? ['sci', '과학'] : ['en', '영어']; };
+    const taskBtn = (d, tk, i) => { const ok = hwTaskOk(tk), info = tk.checks.map((c) => hwCheck(c).txt).join(' · ');
+      return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span>
+        <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; };
+    const dayCard = (d) => {
+      const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t, open = isToday || (UI.hwOpen || {})[d.id];
+      const subs = []; d.tasks.forEach((tk) => { const k = tkSubj(tk)[1]; if (k !== '마무리' && !subs.includes(k)) subs.push(k); });
+      const head1 = `<div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${isToday ? '<span class="badge ok">오늘</span>' : ''}${late ? '<span class="badge err">밀린 숙제</span>' : ''}
+          <div class="hw-goal">${esc(d.goal)}</div>${open ? '' : `<div class="hw-subs">${subs.map((x) => `<span class="hw-sub s-${tkSubj(d.tasks.find((tk) => tkSubj(tk)[1] === x))[0]}">${x}</span>`).join('')}<span class="hw-cnt">${d.tasks.length}개</span></div>`}</div>
+          <div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>`;
+      if (!open) return `<button class="card hw-day hw-fold ${all ? 'done' : ''}" data-open="${d.id}" type="button">${head1}</button>`;
+      const groups = []; d.tasks.forEach((tk, i) => { const [k, nm] = tkSubj(tk); let g = groups[groups.length - 1]; if (!g || g.nm !== nm) groups.push((g = { k, nm, items: [] })); g.items.push(taskBtn(d, tk, i)); });
+      return `<section class="card hw-day ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">${head1}
+        <div class="hw-tasks">${groups.map((g) => `<div class="hw-grp"><span class="hw-sub s-${g.k}">${g.nm}</span></div>${g.items.join('')}`).join('')}</div>
+        ${!isToday ? `<button class="link hw-close" data-close="${d.id}" type="button">접기</button>` : ''}
         ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
       </section>`;
-    }).join('');
-    // 본문·문법이 최우선 (사용자 2026-10-10: 단어는 이미 앎, 대화는 지금 덜 중요)
-    html += `<div class="hw-days">${dayCards(HW.days)}</div>`;
-    if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-days">${dayCards(HW.school.days)}</div>`;
+    };
+    const dayCards = (days) => days.map(dayCard).join('');
+    const past = HW.days.filter((d) => d.date < t), todayD = HW.days.filter((d) => d.date === t), next = HW.days.filter((d) => d.date > t);
+    const lateN = past.filter((d) => !d.tasks.every(hwTaskOk)).length;
+    if (todayD.length) html += `<div class="hw-today">${dayCards(todayD)}</div>`;
+    if (next.length) html += `<h2 class="route-h hw-group">다음 숙제 <span class="hint">눌러서 미리 보기</span></h2><div class="hw-list">${dayCards(next)}</div>`;
+    if (past.length) html += `<h2 class="route-h hw-group">지난 숙제 ${lateN ? `<span class="badge err">밀린 날 ${lateN}</span>` : ''}</h2><div class="hw-list">${dayCards(past)}</div>`;
+    if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-list">${dayCards(HW.school.days)}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = hwAllDays().find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
+    main.querySelectorAll('[data-open],[data-close]').forEach((b) => (b.onclick = () => { UI.hwOpen = UI.hwOpen || {}; if (b.dataset.open) UI.hwOpen[b.dataset.open] = 1; else delete UI.hwOpen[b.dataset.close]; hwView(); }));
     bindPerfBanner();
     main.querySelectorAll('[data-notify]').forEach((b) => (b.onclick = async () => {
       const d = hwAllDays().find((x) => x.id === b.dataset.notify), msg = hwMessage(d), ta = main.querySelector(`[data-msg="${d.id}"]`);
