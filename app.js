@@ -1772,30 +1772,43 @@
     const taskBtn = (d, tk, i) => { const ok = hwTaskOk(tk), info = tk.checks.map((c) => hwCheck(c).txt).join(' · ');
       return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span>
         <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; };
+    // 아코디언 — 언제나 하루만 펼침. 다른 날을 누르면 펼친 날은 스르륵 접히고 그날이 펼쳐짐 (2026-10-16 선생님)
+    const allDays = [...HW.days, ...((HW.school && HW.school.days) || [])];
+    if (!allDays.some((d) => d.id === UI.hwOpenId)) UI.hwOpenId = (allDays.find((d) => d.date === t) || allDays.find((d) => d.date > t) || allDays[allDays.length - 1] || {}).id;
     const dayCard = (d) => {
-      const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t, open = isToday || (UI.hwOpen || {})[d.id];
+      const okN = d.tasks.filter(hwTaskOk).length, all = okN === d.tasks.length, isToday = d.date === t, late = !all && d.date < t, open = d.id === UI.hwOpenId;
       const subs = []; d.tasks.forEach((tk) => { const k = tkSubj(tk)[1]; if (k !== '마무리' && !subs.includes(k)) subs.push(k); });
-      const head1 = `<div class="hw-day-h"><div><b>${esc(d.label)}</b> <span class="hint">${esc(d.dateLabel)}</span> ${isToday ? '<span class="badge ok">오늘</span>' : ''}${late ? '<span class="badge err">밀린 숙제</span>' : ''}
-          <div class="hw-goal">${esc(d.goal)}</div>${open ? '' : `<div class="hw-subs">${subs.map((x) => `<span class="hw-sub s-${tkSubj(d.tasks.find((tk) => tkSubj(tk)[1] === x))[0]}">${x}</span>`).join('')}<span class="hw-cnt">${d.tasks.length}개</span></div>`}</div>
-          <div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></div>`;
-      if (!open) return `<button class="card hw-day hw-fold ${all ? 'done' : ''}" data-open="${d.id}" type="button">${head1}</button>`;
+      const head1 = `<button class="hw-day-h hw-tog" data-tog="${d.id}" type="button" aria-expanded="${open}"><div><b>${esc(d.label)}</b> ${d.dateLabel ? `<span class="hint">${esc(d.dateLabel)}</span> ` : ''}${isToday ? '<span class="badge ok">오늘</span>' : ''}${late ? '<span class="badge err">밀린 숙제</span>' : ''}
+          <div class="hw-goal">${esc(d.goal)}</div><div class="hw-subs">${subs.map((x) => `<span class="hw-sub s-${tkSubj(d.tasks.find((tk) => tkSubj(tk)[1] === x))[0]}">${x}</span>`).join('')}<span class="hw-cnt">${d.tasks.length}개</span></div></div>
+          <div class="hw-ring" style="--p:${Math.round(okN / d.tasks.length * 100)}"><span>${okN}/${d.tasks.length}</span></div></button>`;
       const groups = []; d.tasks.forEach((tk, i) => { const [k, nm] = tkSubj(tk); let g = groups[groups.length - 1]; if (!g || g.nm !== nm) groups.push((g = { k, nm, items: [] })); g.items.push(taskBtn(d, tk, i)); });
-      return `<section class="card hw-day ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">${head1}
+      return `<section class="card hw-day ${open ? 'open' : ''} ${all ? 'done' : ''} ${isToday ? 'today' : ''}" data-day="${d.id}">${head1}
+        <div class="hw-acc"><div class="hw-acc-in">
         <div class="hw-tasks">${groups.map((g) => `<div class="hw-grp"><span class="hw-sub s-${g.k}">${g.nm}</span></div>${g.items.join('')}`).join('')}</div>
-        ${!isToday ? `<button class="link hw-close" data-close="${d.id}" type="button">접기</button>` : ''}
         ${all ? `<div class="hw-done"><b>🎉 ${esc(d.label)} 끝!</b>${TEACHER ? `<span class="hint">${S.hwDone && S.hwDone[d.id] ? `끝낸 시각 ${new Date(S.hwDone[d.id]).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}</span>` : `<button class="btn primary" data-notify="${d.id}" type="button">선생님께 알리기</button>`}</div><textarea class="hw-msg" data-msg="${d.id}" rows="5" readonly hidden></textarea>` : ''}
+        </div></div>
       </section>`;
     };
     const dayCards = (days) => days.map(dayCard).join('');
     const past = HW.days.filter((d) => d.date < t), todayD = HW.days.filter((d) => d.date === t), next = HW.days.filter((d) => d.date > t);
     const lateN = past.filter((d) => !d.tasks.every(hwTaskOk)).length;
+    // 오답노트는 숙제가 아님 — 수업 시간에 선생님이랑 한 문제씩 (2026-10-16 선생님)
+    const wrongN = Object.keys(S.wrong || {}).length, cr = HW.classReview;
+    if (cr && cr.date >= t) html += `<button class="card hw-class" data-wrongs type="button"><span class="hw-class-i">🧑‍🏫</span><span class="hw-body"><span class="hw-t">${esc(cr.label)} 때 같이 볼 오답 ${wrongN}개</span><span class="hw-d">숙제 아니에요 · 틀린 문제는 오답노트에 모아 두면 수업 때 한 문제씩 봐요</span></span><span class="hw-go">오답노트 ›</span></button>`;
     if (todayD.length) html += `<div class="hw-today">${dayCards(todayD)}</div>`;
     if (next.length) html += `<h2 class="route-h hw-group">다음 숙제 <span class="hint">눌러서 미리 보기</span></h2><div class="hw-list">${dayCards(next)}</div>`;
     if (past.length) html += `<h2 class="route-h hw-group">지난 숙제 ${lateN ? `<span class="badge err">밀린 날 ${lateN}</span>` : ''}</h2><div class="hw-list">${dayCards(past)}</div>`;
     if (HW.school && HW.school.days.length) html += `<h2 class="route-h hw-group">🏫 ${esc(HW.school.title || '학교 프린트 숙제')}</h2><div class="hw-list">${dayCards(HW.school.days)}</div>`;
     main.innerHTML = head('숙제', '') .replace('<div class="page-head"><div><h2>숙제</h2></div></div>', '') + html;
     main.querySelectorAll('.hw-task').forEach((b) => (b.onclick = () => { const d = hwAllDays().find((x) => x.id === b.dataset.day); hwGo(d.tasks[+b.dataset.i]); }));
-    main.querySelectorAll('[data-open],[data-close]').forEach((b) => (b.onclick = () => { UI.hwOpen = UI.hwOpen || {}; if (b.dataset.open) UI.hwOpen[b.dataset.open] = 1; else delete UI.hwOpen[b.dataset.close]; hwView(); }));
+    { const w = main.querySelector('[data-wrongs]'); if (w) w.onclick = () => go('wrong'); }
+    main.querySelectorAll('[data-tog]').forEach((b) => (b.onclick = () => {
+      const card = b.closest('.hw-day'); if (card.classList.contains('open')) return; // 늘 하나는 펼쳐 둠
+      UI.hwOpenId = b.dataset.tog;
+      main.querySelectorAll('.hw-day.open').forEach((c) => { c.classList.remove('open'); c.querySelector('.hw-tog').setAttribute('aria-expanded', 'false'); });
+      card.classList.add('open'); b.setAttribute('aria-expanded', 'true');
+      setTimeout(() => { const r = card.getBoundingClientRect(); if (r.top < 0 || r.top > innerHeight * 0.6) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 380); // 접히며 위치가 바뀌면 펼친 날로 따라감
+    }));
     bindPerfBanner();
     main.querySelectorAll('[data-notify]').forEach((b) => (b.onclick = async () => {
       const d = hwAllDays().find((x) => x.id === b.dataset.notify), msg = hwMessage(d), ta = main.querySelector(`[data-msg="${d.id}"]`);

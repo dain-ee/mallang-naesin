@@ -1821,16 +1821,25 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 }
 @media (prefers-color-scheme: dark) {:root:not([data-theme="light"])[data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
 }
-/* 숙제 — 오늘만 펼치고 나머지는 한 줄 (2026-10-16) */
+/* 숙제 — 아코디언: 하루만 펼침, 스르륵 (2026-10-16) */
 .hw-today { margin-bottom: 6px; }
 .hw-list { display: flex; flex-direction: column; gap: 8px; }
-.hw-fold { display: block; width: 100%; padding: 12px 16px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.hw-fold .hw-day-h { margin-bottom: 0; align-items: center; }
-.hw-fold .hw-day-h b { font-size: 15.5px; }
-.hw-fold .hw-ring { width: 40px; height: 40px; }
-.hw-fold .hw-ring span { width: 31px; height: 31px; font-size: 11px; }
-.hw-fold:hover { border-color: var(--accent); }
-.hw-subs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 7px; }
+.hw-day { transition: padding .35s ease, box-shadow .3s, border-color .3s; }
+.hw-day:not(.open) { padding: 12px 16px; }
+.hw-tog { width: 100%; margin: 0 0 12px; padding: 0; font: inherit; color: inherit; text-align: left; background: none; border: 0; cursor: pointer; }
+.hw-tog.hw-day-h { transition: margin .35s ease; }
+.hw-day:not(.open) .hw-tog { align-items: center; margin-bottom: 0; }
+.hw-day:not(.open) .hw-day-h b { font-size: 15.5px; }
+.hw-day:not(.open):hover { border-color: var(--accent); }
+.hw-day .hw-ring { transition: width .35s, height .35s; }
+.hw-day:not(.open) .hw-ring { width: 40px; height: 40px; }
+.hw-day:not(.open) .hw-ring span { width: 31px; height: 31px; font-size: 11px; }
+.hw-subs { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 7px; max-height: 30px; overflow: hidden; transition: max-height .35s ease, opacity .3s, margin .35s; }
+.hw-day.open .hw-subs { max-height: 0; margin-top: 0; opacity: 0; }
+.hw-acc { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .4s cubic-bezier(.3, .8, .25, 1), opacity .3s ease; }
+.hw-day.open .hw-acc { grid-template-rows: 1fr; opacity: 1; }
+.hw-acc-in { min-height: 0; overflow: hidden; }
+.hw-day:not(.open) .hw-acc-in { visibility: hidden; transition: visibility 0s .4s; }
 .hw-cnt { font-size: 12px; font-weight: 700; color: var(--sub); }
 .hw-sub { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 800; border-radius: 99px; color: var(--accent); background: var(--accent-soft); }
 .hw-sub.s-hist { color: #a05a12; background: color-mix(in srgb, #f59e0b 16%, var(--card)); }
@@ -1838,9 +1847,11 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 .hw-sub.s-done { color: var(--mid); background: color-mix(in srgb, var(--mid) 12%, var(--card)); }
 .hw-grp { margin: 6px 0 -2px; }
 .hw-grp:first-child { margin-top: 0; }
-.hw-close { display: block; margin: 10px 0 0 auto; }
 /* 좁은 폰: 사이드바(backdrop-filter 로 쌓임 맥락이 생김)가 숙제 띠(sticky z30) 밑으로 깔려 과 메뉴가 가려지던 것 (2026-10-16) */
 @media (max-width: 560px) { .sidebar { position: relative; z-index: 40; } }
+.hw-class { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 14px; padding: 12px 16px; font: inherit; color: inherit; text-align: left; cursor: pointer; border-style: dashed; }
+.hw-class:hover { border-color: var(--accent); }
+.hw-class-i { flex: none; font-size: 22px; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
