@@ -180,7 +180,7 @@
   const hasComm = (L) => L.comm && (L.comm.functions.length || L.comm.dialogs.length);
   const memCount = (items) => items.filter((x) => S.mem[x.id]).length;
   // 5·6과처럼 영어과외TV 공식 단어 목록표가 있으면 그 목록(교과서 단어)을 씁니다. 예문·품사는 만든 자료에서 붙입니다.
-  const SCW_TABS = [['list', '단어장'], ['mdef', '영영풀이 맞추기'], ['mko', '뜻 맞추기'], ['card', '카드 외우기'], ['spell', '스펠링 쓰기'], ['sws', '프린트 빈칸']];
+  const SCW_TABS = [['list', '단어장'], ['mdef', '영영풀이 맞추기'], ['dw', '영영풀이 보고 쓰기'], ['mko', '뜻 맞추기'], ['card', '카드 외우기'], ['spell', '스펠링 쓰기'], ['sws', '프린트 빈칸']];
   function printWords(L) {
     if (!L.school || !L.school.sections || !L.school.sections.words) return null;
     const pg = L.school.sections.words, ok = new Set();
@@ -479,7 +479,7 @@
   function matchPairs(L, kind) {
     const v = L.ws && L.ws.vocab; if (!v) return [];
     const koOf = (en) => (v.list.find((w) => norm(w.en) === norm(en)) || {}).ko || '';
-    if (kind === 'def') return (v.enDef || []).map((d) => ({ q: d.def, a: d.answer, ko: d.ko || koOf(d.answer) }));
+    if (kind === 'def' || kind === 'dw') return (v.enDef || []).map((d) => ({ q: d.def, a: d.answer, ko: d.ko || koOf(d.answer) }));
     return v.list.map((w) => ({ q: w.ko, a: w.en, ko: w.ex || '' }));
   }
   function matchBox(L, kind) {
@@ -492,6 +492,28 @@
     html += cur == null ? `<div class="empty">다 맞혔어요! 🎉</div>` : `<div class="mt-q"><span class="mt-n">${pairs.length - left.length + 1}</span>${esc(pairs[cur].q)}</div><div class="mt-chips">${words.map((w) => `<button class="chip mt-chip ${usedUp(w) ? 'used' : ''}" data-mtw="${esc(w)}" type="button">${esc(w)}</button>`).join('')}</div>`;
     html += `<div class="mt-list">${pairs.map((x, i) => `<button class="mt-row ${done(i) ? 'ok' : ''} ${i === cur ? 'on' : ''}" data-mti="${i}" type="button"><span class="mt-a">${done(i) ? esc(x.a) : '?'}</span><span class="mt-d">${esc(x.q)}${done(i) && x.ko ? `<span class="mt-ko">${esc(x.ko)}</span>` : ''}</span></button>`).join('')}</div></div>`;
     return html;
+  }
+  // 영영풀이 보고 단어 쓰기 — 한 번 틀리면 첫 글자, 두 번 틀리면 정답을 보여 줌 (기록: S.mt mt:과:dw:번호 — 숙제 match kind dw)
+  function defWrite(L) {
+    const pairs = matchPairs(L, 'dw'), key = `mt:${L.no}:dw`; S.mt = S.mt || {};
+    const ok = pairs.filter((_, i) => (S.mt[`${key}:${i}`] || {}).ok).length;
+    return `<div class="card mt-wrap"><div class="mt-top"><b>영영풀이 보고 단어 쓰기</b><span class="grow"></span><span class="badge ok">${ok} / ${pairs.length}</span> <button class="link" data-dwreset type="button">처음부터</button></div><div class="list">${pairs.map((x, i) => {
+      const r = S.mt[`${key}:${i}`] || {}, miss = r.ok ? 0 : r.miss || 0;
+      return `<div class="item ${r.ok ? 'done' : ''}" data-dw="${i}"><span class="idx">${i + 1}</span><div class="body"><div class="en" style="font-weight:500">${esc(x.q)}</div>
+        ${r.ok ? `<div class="verdict ok">✓ <b>${esc(x.a)}</b> · ${esc(x.ko)}</div>` : `<div class="jua-line" style="display:flex;gap:8px"><input class="dw-in" data-dwi="${i}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${miss ? `${esc(x.a[0])}로 시작해요` : '단어를 쓰고 Enter'}" style="flex:1"><button class="btn sm2" data-dwgo="${i}" type="button">확인</button></div>${miss >= 2 ? `<div class="fix">정답: <b>${esc(x.a)}</b> (${esc(x.ko)}) — 보고 한 번 써 보세요</div>` : miss ? '<div class="fix">다시 한 번! 첫 글자를 힌트로 줬어요</div>' : ''}`}</div></div>`;
+    }).join('')}</div></div>`;
+  }
+  function bindDefWrite(L) {
+    const pairs = matchPairs(L, 'dw'), key = `mt:${L.no}:dw`;
+    const go = (i, inp) => { const v = inp.value.trim(); if (!v) return; const good = norm(v) === norm(pairs[i].a), r = S.mt[`${key}:${i}`] || {};
+      S.mt[`${key}:${i}`] = good ? { ok: 1, miss: r.miss || 0, at: Date.now() } : { ok: 0, miss: (r.miss || 0) + 1, at: Date.now() };
+      logEv('영영풀이 쓰기', good ? 1 : 0, 1, pairs[i].a); save();
+      const y = scrollY; render(); scrollTo(0, y);
+      if (good) fxAfter(true, `[data-dw="${i}"] .verdict`);
+      const next = main.querySelector(good ? '.dw-in' : `[data-dwi="${i}"]`); if (next) next.focus({ preventScroll: !good }); };
+    main.querySelectorAll('.dw-in').forEach((inp) => (inp.onkeydown = (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); go(+inp.dataset.dwi, inp); } }));
+    main.querySelectorAll('[data-dwgo]').forEach((b) => (b.onclick = () => go(+b.dataset.dwgo, main.querySelector(`[data-dwi="${b.dataset.dwgo}"]`))));
+    const rs = main.querySelector('[data-dwreset]'); if (rs) rs.onclick = () => { pairs.forEach((_, i) => delete S.mt[`${key}:${i}`]); save(); render(); };
   }
   function bindMatch(L) {
     main.querySelectorAll('[data-mt]').forEach((box) => {
@@ -584,7 +606,8 @@
   function words(L) {
     const ws = wordsOf(L);
     if (L.school) { // 학교 프린트 단어만 — 단어장 · 영영풀이 맞추기 · 뜻 맞추기 · 카드 · 스펠링 · 프린트 빈칸
-      if (!['list', 'mdef', 'mko', 'card', 'spell', 'sws'].includes(UI.words)) UI.words = 'list';
+      if (!['list', 'mdef', 'dw', 'mko', 'card', 'spell', 'sws'].includes(UI.words)) UI.words = 'list';
+      if (UI.words === 'dw') { main.innerHTML = head(`단어 · ${L.no}과`, '선생님 영영풀이를 보고 단어를 직접 써요', '') + `<div class="bar-row">${seg('words', SCW_TABS, UI.words)}</div>` + defWrite(L); bindDefWrite(L); return; }
       if (['mdef', 'mko', 'sws'].includes(UI.words)) {
         const kn = ws.filter((w) => S.known[wid(L, w)]).length;
         main.innerHTML = head(`단어 · ${L.no}과`, `선생님 프린트 단어 ${ws.length}개 · ${kn}개 외움`, '') + `<div class="bar-row">${seg('words', SCW_TABS, UI.words)}</div>` +
@@ -683,8 +706,23 @@
 
   // ───────── 공통 암기기 ─────────
   // 읽기 · 영어 가리기 · 해석 가리기 · 빈칸 · 배열 · 영작 — 의사소통·문법·본문이 함께 씁니다.
-  const DRILLS = [['read', '읽기'], ['hideEn', '영어 가리기'], ['hideKo', '해석 가리기'], ['cloze', '빈칸 채우기'], ['order', '배열 영작'], ['write', '통영작']];
+  const DRILLS = [['read', '읽기'], ['hideEn', '영어 가리기'], ['hideKo', '해석 가리기'], ['kcloze', '중요 빈칸'], ['cloze', '빈칸 채우기'], ['order', '배열 영작'], ['write', '통영작']];
 
+  // 중요 빈칸 — 선생님 필기·핵심 표현 자리(content/keyblanks.json)만 비움. 없는 문장은 보통 빈칸으로
+  const KB = DATA.keyblanks || {};
+  function keyParts(x) {
+    const phs = KB[x.id]; if (!phs || !phs.length) return blanksOf(x.en);
+    const toks = x.en.split(/\s+/), core = (t) => t.replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g, '').replace(/’/g, "'").toLowerCase();
+    const out = []; let i = 0;
+    const spans = phs.map((ph) => { const pw = ph.split(/\s+/).map(core); for (let s0 = 0; s0 + pw.length <= toks.length; s0++) if (pw.every((w, k) => core(toks[s0 + k]) === w)) return [s0, s0 + pw.length]; return null; }).filter(Boolean).sort((a, b) => a[0] - b[0]);
+    for (const [a, b] of spans) {
+      if (a < i) continue; while (i < a) out.push({ t: toks[i++] });
+      const f = toks[a].match(/^([^A-Za-z0-9']*)/)[1], l = toks[b - 1].match(/([^A-Za-z0-9']*)$/)[1], raw = toks.slice(a, b).join(' ');
+      out.push({ pre: f, ans: raw.slice(f.length, raw.length - l.length), post: l }); i = b;
+    }
+    while (i < toks.length) out.push({ t: toks[i++] });
+    return out;
+  }
   function blanksOf(en) {
     const toks = en.split(/\s+/);
     const cands = toks.map((t, i) => ({ i, core: t.replace(/^[^A-Za-z0-9']+|[^A-Za-z0-9']+$/g, '') }))
@@ -736,6 +774,7 @@
         read: '영어와 해석을 같이 읽어요. 다 외운 문장은 「외웠어요」를 눌러 두세요.',
         hideEn: '해석만 보고 영어 문장을 소리 내어 말해 본 뒤, 가린 곳을 눌러 확인해요.',
         hideKo: '영어만 보고 뜻을 떠올린 뒤 눌러서 확인해요.',
+        kcloze: '시험에 나오는 핵심 표현 자리만 비웠어요. 덩어리째 쓰고 Enter — 다 쓰지 않아도 중요한 곳은 외워져요.',
         cloze: '빈칸에 들어갈 단어를 쓰고 Enter. 철자까지 맞아야 초록색이 돼요.',
         order: '낱말을 눌러 순서대로 놓아요. 잘못 놓은 낱말은 다시 누르면 돌아가요.',
         write: '해석을 보고 영어 문장을 통째로 써요. 틀린 곳은 빨간 물결로 보여 줘요.',
@@ -754,14 +793,14 @@
       if (mode === 'read') inner = `<div class="en">${star}${esc(x.en)}</div><div class="ko">${esc(x.ko)}</div>${x.note ? `<div class="note">💡 ${esc(x.note)}</div>` : ''}`;
       else if (mode === 'hideEn') inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="en ${rv ? '' : 'veil-line'}" data-rv="${x.id}">${esc(x.en)}</div>`;
       else if (mode === 'hideKo') inner = `<div class="en">${star}${esc(x.en)}</div><div class="ko ${rv ? '' : 'veil-line'}" data-rv="${x.id}">${esc(x.ko)}</div>`;
-      else if (['cloze', 'order', 'write'].includes(mode) && (S.dm || {})[`${mode}:${x.id}`] && !UI.redo[x.id]) {
+      else if (['cloze', 'kcloze', 'order', 'write'].includes(mode) && (S.dm || {})[`${mode}:${x.id}`] && !UI.redo[x.id]) {
         // 이미 맞힌 문장 — 다시 들어와도 완성된 상태로 보여 줍니다 (초기화된 것처럼 보이지 않게)
-        inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="en">${esc(x.en)}</div><div class="verdict ok">✓ ${({ cloze: '빈칸', order: '배열 영작', write: '통영작' })[mode]} 완료 <button class="link" data-redo="${x.id}" type="button">다시 해 보기</button></div>`;
+        inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="en">${esc(x.en)}</div><div class="verdict ok">✓ ${({ cloze: '빈칸', kcloze: '중요 빈칸', order: '배열 영작', write: '통영작' })[mode]} 완료 <button class="link" data-redo="${x.id}" type="button">다시 해 보기</button></div>`;
       }
-      else if (mode === 'cloze') {
-        const parts = blanksOf(x.en);
+      else if (mode === 'cloze' || mode === 'kcloze') {
+        const parts = mode === 'kcloze' ? keyParts(x) : blanksOf(x.en);
         inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="cloze" data-cl="${x.id}">${parts.map((p, k) => p.ans != null
-          ? `${esc(p.pre)}<input data-ans="${esc(p.ans)}" data-k="${k}" style="width:${Math.max(4, p.ans.length) + 2}ch" autocomplete="off" spellcheck="false">${esc(p.post)}`
+          ? `${esc(p.pre)}<input data-ans="${esc(p.ans)}" data-k="${k}" style="width:${Math.max(4, p.ans.length) + 2}ch;max-width:100%" ${p.ans.includes(' ') ? `placeholder="${p.ans.split(/\s+/).length}단어"` : ''} autocomplete="off" autocapitalize="off" spellcheck="false">${esc(p.post)}`
           : esc(p.t)).join(' ')}</div><div class="fix" hidden></div>`;
       } else if (mode === 'order') {
         const toks = x.en.split(/\s+/);
