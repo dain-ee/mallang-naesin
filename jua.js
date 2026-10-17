@@ -100,7 +100,7 @@
 
   // ── 숙제
   function check(c) {
-    if (c.type === 'step') { const u = UNITS.find((x) => x.no === c.unit), list = u ? qs(u, c.step) : [], done = list.filter((q) => rec(u, q)).length, ok = list.filter((q) => (rec(u, q) || {}).ok).length; return { ok: list.length > 0 && done >= list.length, txt: `${done}/${list.length}문제 풂 · ${ok}개 맞힘` }; }
+    if (c.type === 'step') { const u = UNITS.find((x) => x.no === c.unit), list = u ? qs(u, c.step).filter((q) => !c.secs || c.secs.includes(q.section.split(' ')[0])) : [], done = list.filter((q) => rec(u, q)).length, ok = list.filter((q) => (rec(u, q) || {}).ok).length; return { ok: list.length > 0 && done >= list.length, txt: `${done}/${list.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'wrong') { const n = wrongAll(); return { ok: n === 0, txt: n ? `틀린 문제 ${n}개 남음` : '틀린 문제 0개' }; }
     if (c.type === 'termsRead') return { ok: !!S.seen.terms, txt: S.seen.terms ? '다 훑어봤어요' : '아직' };
     if (c.type === 'termsQuiz') { const n = TERMS.terms.filter((t) => (S.terms[t.id] || {}).ok).length; return { ok: n >= TERMS.terms.length, txt: `${n}/${TERMS.terms.length}개 맞힘` }; }
@@ -130,7 +130,7 @@
       setTimeout(() => { const r = card.getBoundingClientRect(); if (r.top < 0 || r.top > innerHeight * 0.6) card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 380); }));
   }
   function hwOpen(tk) {
-    { const g = tk.go || {}; UI.hwT = tk; delete document.documentElement.dataset.navopen; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } if (g.rmode) { UI.rmode = g.rmode; UI.rpage = g.rpage || 'all'; RQ.q = null; } save(true); goFx(document.activeElement && document.activeElement.closest('button') || main, true); }
+    { const g = tk.go || {}; UI.hwT = tk; delete document.documentElement.dataset.navopen; if (g.unit) S.unit = g.unit; S.step = g.step; if (g.tmode) UI.tmode = g.tmode; if (g.wmode) { UI.wmode = g.wmode; UI.wjump = 1; } UI.hall = 0; if (g.rmode) { UI.rmode = g.rmode; UI.rpage = g.rpage || 'all'; RQ.q = null; } save(true); goFx(document.activeElement && document.activeElement.closest('button') || main, true); }
   }
   // 숙제하는 동안: 큰 메뉴 대신 그날 숙제를 밑줄 탭으로 (폰에서는 메뉴를 접어 둠)
   function hwBar() {
@@ -445,16 +445,21 @@
         (groups.length ? groups.map((g) => `<div class="card jua-sec"><h2>Unit ${g.u.no} · 다시 풀어 보기</h2><ol class="jua-q">${g.list.map((q, i) => qCard(g.u, q, i, true)).join('')}</ol></div>`).join('') : '<div class="empty">틀린 문제가 하나도 없어요! 💖</div>');
       bind(); return;
     }
-    const st = stat(u, S.step), pct = st.n ? Math.round(st.ok / st.n * 100) : 0;
+    // 숙제로 들어왔으면 그날 할 부분(A·B 등)만 보여 줌 — 화면 문제 수 = 숙제 문제 수
+    const hg = UI.hwT && UI.hwT.go || {}, hs = !UI.hall && hg.secs && hg.unit === u.no && hg.step === S.step ? hg.secs : null;
+    const qlist = qs(u, S.step).filter((q) => !hs || hs.includes(q.section.split(' ')[0]));
+    const st = hs ? { n: qlist.length, ok: qlist.filter((q) => (rec(u, q) || {}).ok).length } : stat(u, S.step), pct = st.n ? Math.round(st.ok / st.n * 100) : 0;
     let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📗 Grammar Stage Plus 2 · Unit ${u.no} · ${esc((u.steps[S.step] || STEP_NAME[S.step]).replace(/\d+과 /, ''))}</p><h1>${esc(u.title)}</h1>
       <div class="jua-prog"><span style="width:${pct}%"></span></div><p>${st.ok} / ${st.n} 맞힘 ${pct === 100 ? '· 이 단계 클리어! 👑' : ''}</p></div><span class="jua-crown">👑</span></section>`;
+    if (hs) html += `<div class="hw-banner">📌 오늘 숙제는 ${esc(hs.join('·'))}만 · ${qlist.length}문제 <button class="link" data-hall type="button">전체 보기</button></div>`;
     html += `<div class="jua-lesson">${u.lessons[S.step] || ''}</div>`; // 노트에 있던 설명 그대로 (주아 노트 원본)
     let sec = null, list = [];
     const flush = () => { if (sec !== null) html += `<div class="card jua-sec"><h2>${esc(sec)}</h2><ol class="jua-q">${list.join('')}</ol></div>`; list = []; };
-    qs(u, S.step).forEach((q, i) => { if (q.section !== sec) { flush(); sec = q.section; } list.push(qCard(u, q, i)); });
+    qlist.forEach((q, i) => { if (q.section !== sec) { flush(); sec = q.section; } list.push(qCard(u, q, i)); });
     flush();
-    const next = S.step < 4 ? `<button class="btn ok" data-next type="button">${STEP_NAME[S.step + 1]} →</button>` : '';
+    const next = S.step < 4 && !hs ? `<button class="btn ok" data-next type="button">${STEP_NAME[S.step + 1]} →</button>` : '';
     main.innerHTML = html + `<div class="sc-foot"><span></span>${next}</div>`;
+    const ha = main.querySelector('[data-hall]'); if (ha) ha.onclick = () => { UI.hall = 1; render(); };
     const nb = main.querySelector('[data-next]'); if (nb) nb.onclick = () => { S.step++; save(true); render(); scrollTo(0, 0); };
     bind();
   }
