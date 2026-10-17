@@ -977,7 +977,7 @@
     return html + '</div>';
   }
   function bulletRow(ln, li) {
-    return `<div class="bl" data-li="${li}"><span class="bdot">•</span><button type="button" class="btag ${ln.lab ? 'on' : ''}" title="라벨 바꾸기">${ln.lab ? esc(ln.lab) : '라벨'}</button><input class="bin" value="${esc(ln.t)}" placeholder="필기하고 Enter → 다음 줄" spellcheck="false"></div>`;
+    return `<div class="bl" data-li="${li}"><span class="bdot">•</span><button type="button" class="btag ${ln.lab ? 'on' : ''}" title="라벨 바꾸기">${ln.lab ? esc(ln.lab) : '라벨'}</button><textarea class="bin" rows="1" placeholder="필기하고 Enter → 다음 줄" spellcheck="false">${esc(ln.t)}</textarea></div>`;
   }
 
   // 필기 복기 — 필기를 가린 문장을 보고 떠올린 뒤, 「필기 보기」로 확인하고 「복기했어요」.
@@ -1068,13 +1068,14 @@
       const paint = (focus) => { const st = noteOf(id); box.innerHTML = st.lines.map((ln, li) => bulletRow(ln, li)).join(''); bindRows(); if (focus != null) { const inp = box.querySelectorAll('.bin')[focus]; if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); } } };
       const bindRows = () => box.querySelectorAll('.bl').forEach((row) => {
         const li = +row.dataset.li, inp = row.querySelector('.bin'), st = noteOf(id);
-        inp.oninput = () => { st.lines[li].t = inp.value; (S.notesAt = S.notesAt || {})[id] = Date.now(); save(); };
+        const fit = () => { inp.style.height = 'auto'; inp.style.height = inp.scrollHeight + 'px'; }; fit(); // 긴 필기는 줄바꿈해서 다 보이게 (폰에서 잘리던 것)
+        inp.oninput = () => { fit(); st.lines[li].t = inp.value.replace(/\n/g, ' '); (S.notesAt = S.notesAt || {})[id] = Date.now(); save(); };
         inp.onkeydown = (e) => {
           if (e.isComposing || e.keyCode === 229) return; // 한글 조합 중 Enter 무시
           if (e.key === 'Enter') { e.preventDefault(); st.lines.splice(li + 1, 0, { lab: st.lines[li].lab, t: '' }); save(); paint(li + 1); }
           else if (e.key === 'Backspace' && !inp.value && st.lines.length > 1) { e.preventDefault(); st.lines.splice(li, 1); save(); paint(Math.max(0, li - 1)); }
-          else if (e.key === 'ArrowUp' && li > 0) { e.preventDefault(); box.querySelectorAll('.bin')[li - 1].focus(); }
-          else if (e.key === 'ArrowDown' && li < st.lines.length - 1) { e.preventDefault(); box.querySelectorAll('.bin')[li + 1].focus(); }
+          else if (e.key === 'ArrowUp' && li > 0 && inp.selectionStart === 0) { e.preventDefault(); box.querySelectorAll('.bin')[li - 1].focus(); }
+          else if (e.key === 'ArrowDown' && li < st.lines.length - 1 && inp.selectionEnd === inp.value.length) { e.preventDefault(); box.querySelectorAll('.bin')[li + 1].focus(); }
         };
         row.querySelector('.btag').onclick = () => { const cur = LINE_LABS.indexOf(st.lines[li].lab); st.lines[li].lab = LINE_LABS[(cur + 1) % LINE_LABS.length]; save(); paint(li); };
       });
