@@ -53,7 +53,7 @@
 
   // 화면마다 잠깐 쓰는 상태 — 저장하지 않습니다.
   const UI = { scSel: {}, spage: 0, scHideKo: false, redo: {}, words: 'ws', comm: 'ws', grammar: 'ws', read: 'note', rpart: 0, coreOnly: true, drill: 'read', onlyKey: false, onlyTodo: false,
-               card: 0, cardFlip: false, cardDir: 'en', test: null, quiz: null, quizCat: '전체', quizScope: EXAMS.length ? 'exam' : 'one', examSet: EXAMS.length ? EXAMS[0].id : 'all', revealed: {} };
+               card: 0, cardFlip: false, cardDir: 'en', test: null, quiz: null, quizCat: '전체', quizScope: EXAMS.length ? 'exam' : 'one', examSet: 'all', revealed: {} };
 
   const $ = (s, r = document) => r.querySelector(s);
   const main = $('#main');
@@ -1275,10 +1275,14 @@
   // 숨기는 문제: 시험 범위 밖(q.off — 선생님이 안 다룬 문법) · 선생님 프린트와 다른 영영풀이
   const hideQ = (q) => !!q.off; // 영영풀이는 선생님 프린트와 다른 정의만 scope.json 에서 off
   const exQs = (e, L) => (e ? e.questions.map((q, i) => ({ q, i })).filter(({ q }) => !hideQ(q) && (!q.lesson || +q.lesson === L.no)) : []); // 5-6과 섞인 시험지도 지금 고른 과만
+  // 기출 문제는 출처 대신 난이도로 (선생님 2026-10-17) — q.lv: 1 필수(하) · 2 실력(중) · 3 고난도(상), content/exam_levels.json
+  const LV = { lv1: [1, '필수 (하)'], lv2: [2, '실력 (중)'], lv3: [3, '고난도 (상)'] };
+  const exAll = (L) => EXAMS.flatMap((e) => exQs(e, L).map(({ q, i }) => ({ q, key: `ex:${e.id}:${i}`, no: q.lesson, src: e.title })));
+  const exLv = (L, set) => exAll(L).filter(({ q }) => set === 'all' || (LV[set] && q.lv === LV[set][0]));
   function qPool(L) { return qPool0(L).filter(({ q }) => !hideQ(q)); }
   function qPool0(L) {
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean); // 숙제로 고른 문제만
-    const src = UI.quizScope === 'exam' ? EXAMS.flatMap((e) => (UI.examSet === 'all' || UI.examSet === e.id ? exQs(e, L) : []).map(({ q, i }) => ({ q, key: `ex:${e.id}:${i}`, no: q.lesson, src: e.title })))
+    const src = UI.quizScope === 'exam' ? exLv(L, UI.examSet).sort((a, b) => CATS.indexOf(a.q.type === 'short' ? '서술형' : a.q.cat) - CATS.indexOf(b.q.type === 'short' ? '서술형' : b.q.cat))
       : UI.quizScope === 'all' ? LESSONS.flatMap((l) => l.questions.map((q, i) => ({ q, key: `${l.no}:${i}`, no: l.no }))) : L.questions.map((q, i) => ({ q, key: `${L.no}:${i}`, no: L.no }));
     return src.filter(({ q }) => UI.quizCat === '전체' || (UI.quizCat === '서술형' ? q.type === 'short' : q.cat === UI.quizCat));
   }
@@ -1286,7 +1290,7 @@
   const solvedBefore = (key) => { const r = S.qa[key]; return !!r && (r.at || 0) >= (UI.qSince || 0); };
   function seedQuiz(pool) { const i = pool.findIndex((p) => !solvedBefore(p.key)); return { pool, i: i < 0 ? 0 : i, picks: {} }; }
   function quiz(L) {
-    if (UI.examSet !== 'all' && UI.quizScope === 'exam' && !exQs(EXAMS.find((e) => e.id === UI.examSet), L).length) { UI.examSet = 'all'; UI.quiz = null; } // 지금 고른 과에 없는 시험지면 전체로
+    if (UI.examSet !== 'all' && !LV[UI.examSet]) { UI.examSet = 'all'; UI.quiz = null; } // 예전 출처별 선택은 전체로
     if (!UI.quiz) { const pool = qPool(L); UI.quiz = seedQuiz(UI.quizScope === 'all' || (UI.quizScope === 'exam' && UI.examSet === 'all') ? shuffle(pool) : pool); }
     const Q = UI.quiz;
     const st = quizStats(L);
@@ -1295,10 +1299,10 @@
     if (UI.quizOnly) html = head(`숙제 문제 ${Q.pool.length}개`, '이 문제만 풀면 끝이에요', `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
     else {
-    html = head(`실전 문제${UI.quizScope === 'exam' ? ' · 기출 시험지' : UI.quizScope === 'all' ? ' · 5~8과 섞어서' : ` · ${L.no}과`}`, UI.quizScope === 'exam' ? (UI.examSet === 'all' ? `기출비 카페에서 골라 낸 ${L.no}과 문제 ${EXAMS.reduce((n, e) => n + exQs(e, L).length, 0)}개를 섞어서` : `출처: ${esc((EXAMS.find((e) => e.id === UI.examSet) || {}).source || '')}`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘`,
+    html = head(`실전 문제${UI.quizScope === 'exam' ? ' · 기출 시험지' : UI.quizScope === 'all' ? ' · 5~8과 섞어서' : ` · ${L.no}과`}`, UI.quizScope === 'exam' ? (UI.examSet === 'all' ? `${L.no}과 기출 ${exAll(L).length}문제를 섞어서` : `${LV[UI.examSet][1]} · ${({ lv1: '꼭 맞혀야 하는 기본', lv2: '내신에 자주 나오는 판단 문제', lv3: '점수를 가르는 어려운 문제' })[UI.examSet]} · ${exLv(L, UI.examSet).length}문제`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘`,
       `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="bar-row">${seg('quizScope', [...(EXAMS.length ? [['exam', `기출 시험지 · ${L.no}과 (${EXAMS.reduce((a, e) => a + exQs(e, L).length, 0)})`]] : []), ['one', '이 단원 (직접 만든 문제)'], ['all', '5~8과 섞기']], UI.quizScope)}${seg('quizCat', CATS.map((c) => [c, c]), UI.quizCat)}</div>` +
-      (UI.quizScope === 'exam' && EXAMS.length > 1 ? `<div class="bar-row">${seg('examSet', [['all', '전체 섞기'], ...EXAMS.filter((e) => exQs(e, L).length).map((e) => [e.id, `${e.title.replace(/5-6과/, `5-6과 중 ${L.no}과`)} (${exQs(e, L).length})`])], UI.examSet)}</div>` : '');
+      (UI.quizScope === 'exam' && EXAMS.length ? `<div class="bar-row">${seg('examSet', [['all', '전체 섞기'], ...Object.entries(LV).map(([k, [, t]]) => [k, `${t} ${exLv(L, k).length}`])], UI.examSet)}</div>` : '');
     }
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; bindQuizTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : solvedBefore(p.key) ? 'solved' : ''}" data-qi="${i}" type="button" ${!r && solvedBefore(p.key) ? 'title="전에 푼 문제"' : ''}>${i + 1}</button>`; }).join('')}</div>`;
@@ -1320,7 +1324,7 @@
   function questionCard({ q, no, src, lab, hist }, r, num) {
     const kind = q.type === 'short' ? (hist ? '단답형' : '서술형') : q.type === 'essay' ? '서술형' : q.cat;
     const showNo = hist ? UI.hquizScope !== 'one' || S.tab === 'wrong' : UI.quizScope !== 'one' || S.tab === 'wrong';
-    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? '기출 시험지' : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
+    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? (!hist && q.lv ? ['', '필수', '실력', '고난도'][q.lv] : '기출 시험지') : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
       <p class="q-text">${rich(q.q)}</p>${q.passage ? `<div class="passage">${rich(q.passage)}</div>` : ''}`;
     if (q.type === 'essay') {
       body += `<div class="short essay"><textarea id="sh-in" rows="3" spellcheck="false" placeholder="문장으로 써 보세요" ${r ? 'disabled' : ''}>${esc(r ? r.typed : '')}</textarea><div class="actions" style="justify-content:flex-start"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div></div>`;
