@@ -260,14 +260,14 @@
   $('#subj').addEventListener('click', (e) => { const b = e.target.closest('[data-subj]'); if (b) setSubj(b.dataset.subj); });
   function setSubj(sj) {
     if (sj === S.subj) return;
-    S.subj = sj; UI.test = null; UI.quiz = null; UI.htest = null; UI.hquiz = null; UI.quizOnly = null;
+    S.subj = sj; UI.test = null; UI.quiz = null; UI.htest = null; UI.hquiz = null; UI.quizOnly = null; UI.hexamSet = 'all';
     useSubj(); if (isHist() && !HUNITS.some((u) => u.no === S.hunit) && HUNITS[0]) S.hunit = HUNITS[0].no; // 과목마다 자기 단원으로
     if (!['wrong', 'log'].includes(S.tab) || (S.tab === 'hw' && sj !== 'en')) S.tab = sj !== 'en' ? 'hhome' : 'home';
     save(true); render(); window.scrollTo(0, 0);
   }
   function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.hsecs = null; UI.htest = null; UI.hquiz = null; save(true); render(); }
   function setLesson(no) { if (no !== S.lesson) loading(no); S.lesson = no; UI.rpart = 0; UI.card = 0; UI.cardFlip = false; UI.test = null; UI.quiz = null; save(); render(); }
-  function go(tab) { if (!UI.fromHw) UI.qSince = 0; if (tab === 'quiz') UI.quiz = null; if (tab === 'hquiz') UI.hquiz = null; /* 들어올 때마다 기록에서 다시 — 숙제에서 푼 것도 보이게 */ if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
+  function go(tab) { if (!UI.fromHw) { UI.qSince = 0; if (tab === 'hquiz' && UI.hexamSet && !LV[UI.hexamSet]) UI.hexamSet = 'all'; } /* 메뉴로 들어오면 숙제 시험지 대신 난이도별 */ if (tab === 'quiz') UI.quiz = null; if (tab === 'hquiz') UI.hquiz = null; /* 들어올 때마다 기록에서 다시 — 숙제에서 푼 것도 보이게 */ if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
 
   // 단원을 바꾸면 유령이 잠깐 날아와 '5과 불러오는 중' — 바뀐 걸 확실히 느끼게.
   function loading(no, hs) {
@@ -1363,7 +1363,7 @@
   function questionCard({ q, no, src, lab, hist }, r, num) {
     const kind = q.type === 'short' ? (hist ? '단답형' : '서술형') : q.type === 'essay' ? '서술형' : q.cat;
     const showNo = hist ? UI.hquizScope !== 'one' || S.tab === 'wrong' : UI.quizScope !== 'one' || S.tab === 'wrong';
-    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? (!hist && q.lv ? ['', '필수', '실력', '고난도'][q.lv] : '기출 시험지') : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
+    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? (q.lv ? ['', '필수', '실력', '고난도'][q.lv] : '기출 시험지') : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
       <p class="q-text">${rich(q.q)}</p>${q.passage ? `<div class="passage">${rich(q.passage)}</div>` : ''}`;
     if (q.type === 'essay') {
       body += `<div class="short essay"><textarea id="sh-in" rows="3" spellcheck="false" placeholder="문장으로 써 보세요" ${r ? 'disabled' : ''}>${esc(r ? r.typed : '')}</textarea><div class="actions" style="justify-content:flex-start"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div></div>`;
@@ -1615,11 +1615,15 @@
 
   // ───────── 역사 실전 문제 ─────────
   const HCATS = ['전체', '개념', '자료', '서술형'];
+  // 과학·역사 기출도 출처 대신 난이도로 — 지금 고른 단원 문제만 (q.unit), 숙제 시험지는 예외
+  const hxAll = (U) => HEXAMS.flatMap((e) => e.questions.map((q, i) => (!hideQ(q) && q.unit === U.no ? qByKey(`hx:${e.id}:${i}`) : null))).filter(Boolean);
+  const hxLv = (U, set) => hxAll(U).filter(({ q }) => set === 'all' || (LV[set] && q.lv === LV[set][0]));
   function hPool(U) {
     if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
     const sc = UI.hquizScope || 'one';
     const one = (u) => u.questions.map((q, i) => (q.off ? null : qByKey(`h:${u.no}:${i}`)));
-    const src = sc === 'exam' ? HEXAMS.filter((e) => (UI.hexamSet || 'all') === 'all' || e.id === UI.hexamSet).flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
+    const src = sc === 'exam' ? (HEXAMS.some((e) => e.id === UI.hexamSet) ? HEXAMS.filter((e) => e.id === UI.hexamSet).flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) // 숙제로 정해 준 시험지는 그대로
+      : hxLv(U, UI.hexamSet || 'all').sort((a, b) => a.q.lv - b.q.lv)) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
     const cat = UI.hquizCat || '전체';
     return src.filter(Boolean).filter(({ q }) => cat === '전체' || (cat === '서술형' ? q.type === 'short' || q.type === 'essay' : q.cat === cat && q.type === 'mc'));
   }
@@ -1627,11 +1631,11 @@
     UI.hquizScope = UI.hquizScope || (HEXAMS.length ? 'exam' : 'one');
     if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = seedQuiz(UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool) : pool); }
     const Q = UI.hquiz, st = hQuizStats(U);
-    const scopes = [...(HEXAMS.length ? [['exam', `기출 시험지 (${HEXAMS.reduce((n, e) => n + e.questions.filter((q) => !hideQ(q)).length, 0)})`]] : []), ['one', `이 단원 (${U.questions.filter((q) => !q.off).length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
+    const scopes = [...(HEXAMS.length ? [['exam', `기출 · ${esc(U.code)} (${hxAll(U).length})`]] : []), ['one', `이 단원 (${U.questions.filter((q) => !q.off).length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
     const ex = HEXAMS.find((e) => e.id === UI.hexamSet);
-    let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `출처: ${esc(ex.source || '')}` : '기출비 카페에서 받은 시험지를 섞어서') : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
+    let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `📌 숙제로 정해 준 시험지 · ${ex.questions.filter((q) => !hideQ(q)).length}문제` : LV[UI.hexamSet] ? `${LV[UI.hexamSet][1]} · ${esc(U.code)} · ${hxLv(U, UI.hexamSet).length}문제` : `${esc(U.code)} 기출 ${hxAll(U).length}문제를 섞어서`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>` +
-      (UI.hquizScope === 'exam' && HEXAMS.length > 1 ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], ...HEXAMS.map((e) => [e.id, `${e.title} (${e.questions.filter((q) => !hideQ(q)).length})`])], UI.hexamSet || 'all')}</div>` : '');
+      (UI.hquizScope === 'exam' && HEXAMS.length ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], ...Object.entries(LV).map(([k, [, t]]) => [k, `${t} ${hxLv(U, k).length}`]), ...(ex ? [[ex.id, '📌 숙제 시험지']] : [])], UI.hexamSet || 'all')}</div>` : '');
     if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : solvedBefore(p.key) ? 'solved' : ''}" data-qi="${i}" type="button" ${!r && solvedBefore(p.key) ? 'title="전에 푼 문제"' : ''}>${i + 1}</button>`; }).join('')}</div>`;
