@@ -1912,6 +1912,8 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .jua-ops.rd-col { flex-direction: column; align-items: stretch; }
 .jua-ops.rd-col .jua-op { text-align: left; white-space: normal; }
 .jua-units.jua-read-nav { grid-template-columns: 1fr; }
+.kbd { margin-left: 6px; padding: 1px 6px; font-size: 11px; font-weight: 700; border-radius: 6px; background: rgba(255,255,255,.22); }
+@media (hover: none) { .kbd { display: none; } }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

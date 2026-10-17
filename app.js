@@ -1306,7 +1306,7 @@
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
-      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →</button></div></div>`;
+      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && Q.i < Q.pool.length - 1 ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
     main.innerHTML = html;
     bindQuizTop();
     bindQuestion(cur, (r) => { Q.picks[cur.key] = r; render(); });
@@ -1596,7 +1596,7 @@
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
-      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →</button></div></div>`;
+      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && Q.i < Q.pool.length - 1 ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
     main.innerHTML = html;
     hBindTop();
     bindQuestion(cur, (r) => { Q.picks[cur.key] = r; render(); });
@@ -1934,6 +1934,17 @@
   // 단어 카드 — 스페이스로 뒤집기
   document.addEventListener('keydown', (e) => {
     if (((S.tab === 'words' && UI.words === 'card') || (S.tab === 'hterms' && UI.ht === 'card')) && e.code === 'Space' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); UI.cardFlip = !UI.cardFlip; render(); }
+  });
+
+  // 실전 문제 — 풀고 나서 Enter 면 바로 다음 문제 (「다음」 안 눌러도)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || e.shiftKey || !e.target.isConnected) return; // 채점한 그 Enter(칸이 다시 그려져 사라짐)는 건너뜀
+    const Q = S.tab === 'quiz' ? UI.quiz : S.tab === 'hquiz' ? UI.hquiz : null, a = document.activeElement;
+    if (!Q || !Q.pool[Q.i] || !Q.picks[Q.pool[Q.i].key] || Q.i >= Q.pool.length - 1) return;
+    if (a && (/INPUT|TEXTAREA|SELECT/.test(a.tagName) && !a.disabled || a.tagName === 'BUTTON')) return; // 버튼에 포커스면 그 버튼이 알아서
+    e.preventDefault(); Q.i++; render();
+    const f = main.querySelector('.q-card textarea:not([disabled])'); if (f) f.focus({ preventScroll: true }); // 서술형이면 바로 쓰기
+    const qw = main.querySelector('.qwrap'); if (qw && qw.getBoundingClientRect().top < 0) qw.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
 
   // ───────── 시작 ─────────
