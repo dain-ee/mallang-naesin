@@ -2058,8 +2058,30 @@
   setInterval(() => syncNow(true), 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(true); });
 
-  S.tab = HW && dayKey(Date.now()) <= HW.due ? 'hw' : isHist() ? 'hhome' : 'home'; // 숙제가 있으면 숙제부터, 없으면 단원 홈
-  render();
+  // 새로고침해도 보던 자리 그대로 (이 탭 안에서만 — 새로 열면 숙제부터)
+  const HERE = 'naesin:here';
+  function keepHere() {
+    try {
+      const ui = {}; for (const k in UI) if (['string', 'number', 'boolean'].includes(typeof UI[k]) && !['fromHw'].includes(k)) ui[k] = UI[k];
+      const d = UI.hwT && HW ? HW.days.find((x) => x.tasks.includes(UI.hwT)) : null;
+      const qz = (q) => (q ? { keys: q.pool.map((p) => p.key), i: q.i } : null);
+      sessionStorage.setItem(HERE, JSON.stringify({ tab: S.tab, subj: S.subj, lesson: S.lesson, hunit: S.hunit, hw: d ? [d.id, d.tasks.indexOf(UI.hwT)] : null, quizOnly: UI.quizOnly || null, quiz: qz(UI.quiz), hquiz: qz(UI.hquiz), ui, y: scrollY }));
+    } catch {}
+  }
+  addEventListener('pagehide', keepHere); document.addEventListener('visibilitychange', () => { if (document.hidden) keepHere(); });
+  let here = null; try { here = JSON.parse(sessionStorage.getItem(HERE) || 'null'); } catch {}
+  if (here && here.tab && !TEACHER) {
+    const t = here.hw && HW ? ((HW.days.find((x) => x.id === here.hw[0]) || {}).tasks || [])[here.hw[1]] : null;
+    if (t) hwGo(t); else { S.subj = here.subj || S.subj; S.tab = here.tab; }
+    if (here.lesson) S.lesson = here.lesson; if (here.hunit) S.hunit = here.hunit;
+    Object.assign(UI, here.ui || {}); UI.quizOnly = here.quizOnly || UI.quizOnly;
+    const back = (q) => { if (!q) return null; const pool = q.keys.map(qByKey).filter(Boolean); return pool.length ? { pool, i: Math.min(q.i, pool.length - 1), picks: {} } : null; };
+    UI.quiz = back(here.quiz); UI.hquiz = back(here.hquiz);
+    render(); requestAnimationFrame(() => setTimeout(() => scrollTo(0, here.y || 0), 60));
+  } else {
+    S.tab = HW && dayKey(Date.now()) <= HW.due ? 'hw' : isHist() ? 'hhome' : 'home'; // 숙제가 있으면 숙제부터, 없으면 단원 홈
+    render();
+  }
   (async () => {
     if (SYNC && S.syncKey) {
       try {

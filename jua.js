@@ -18,7 +18,10 @@
   if (!UNITS.find((u) => u.no === S.unit)) S.unit = UNITS.length ? UNITS[UNITS.length - 1].no : 0;
   S.terms = S.terms || {}; S.seen = S.seen || {}; S.wd = S.wd || {};
   const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  if (HW && HW.days.some((d) => d.date >= todayKey())) S.step = 'hw'; // 숙제가 있으면 숙제부터
+  // 새로고침해도 보던 자리 그대로 (이 탭 안에서만 — 새로 열면 숙제부터)
+  const HERE = (() => { try { return JSON.parse(sessionStorage.getItem('jua:here') || 'null'); } catch (e) { return null; } })();
+  if (HERE && HERE.step != null) { S.step = HERE.step; if (HERE.unit) S.unit = HERE.unit; }
+  else if (HW && HW.days.some((d) => d.date >= todayKey())) S.step = 'hw'; // 숙제가 있으면 숙제부터
   if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum', 'words', 'read'].includes(S.step)) S.step = 2;
   let pushT = null;
   const save = (local) => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!local) schedule(); };
@@ -542,6 +545,16 @@
   setInterval(() => syncNow(true), 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(true); });
 
+  function keepHere() {
+    try {
+      const ui = {}; for (const k in UI) if (['string', 'number', 'boolean'].includes(typeof UI[k])) ui[k] = UI[k];
+      const d = UI.hwT && HW ? HW.days.find((x) => x.tasks.includes(UI.hwT)) : null;
+      sessionStorage.setItem('jua:here', JSON.stringify({ step: S.step, unit: S.unit, hw: d ? [d.id, d.tasks.indexOf(UI.hwT)] : null, ui, y: scrollY }));
+    } catch (e) {}
+  }
+  addEventListener('pagehide', keepHere); document.addEventListener('visibilitychange', () => { if (document.hidden) keepHere(); });
+  if (HERE) { Object.assign(UI, HERE.ui || {}); if (HERE.hw && HW) UI.hwT = ((HW.days.find((x) => x.id === HERE.hw[0]) || {}).tasks || [])[HERE.hw[1]] || null; }
   render();
+  if (HERE) requestAnimationFrame(() => setTimeout(() => scrollTo(0, HERE.y || 0), 60));
   syncNow(true);
 })();
