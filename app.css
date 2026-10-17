@@ -1852,6 +1852,52 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 .hw-class { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 14px; padding: 12px 16px; font: inherit; color: inherit; text-align: left; cursor: pointer; border-style: dashed; }
 .hw-class:hover { border-color: var(--accent); }
 .hw-class-i { flex: none; font-size: 22px; }
+/* 주아 — 책별 메뉴 · 리딩 (2026-10-17) */
+.jua-book { display: flex; flex-direction: column; gap: 6px; }
+.jua-book + .jua-book, .jua-quick + .jua-book { margin-top: 10px; }
+.jua-book-h { padding: 8px 12px 2px; font-size: 13.5px; font-weight: 900; color: var(--ink, #33303a); letter-spacing: .01em; }
+.jua-unit-t { font-weight: 600; color: var(--sub); }
+.jua-book-x { margin-top: 2px; }
+.hw-sub.jb-gram { color: #11795a; background: color-mix(in srgb, #10b981 14%, var(--card)); }
+.hw-sub.jb-read { color: #2b62c9; background: color-mix(in srgb, #3b82f6 13%, var(--card)); }
+.jw-def { display: block; margin-top: 2px; font-size: 12px; font-weight: 500; color: var(--sub); font-style: italic; }
+.rd-hero .rd-bigko { font-size: 13px; opacity: .85; }
+.rd-pages { align-items: center; gap: 6px; }
+.rd-page h2 { line-height: 1.4; }
+.rd-para { padding: 6px 0 10px; border-bottom: 1px dashed var(--line); }
+.rd-para:last-of-type { border-bottom: 0; }
+.rd-sent { padding: 10px 0; }
+.rd-chunks { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 6px; font-size: 17px; line-height: 1.45; }
+.rd-ch { display: inline-flex; flex-direction: column; gap: 2px; padding: 3px 6px; border-radius: 10px; }
+.rd-ch b { font-weight: 600; font-family: Georgia, 'Times New Roman', serif; }
+.rd-ch small { font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.hide-ko .rd-ch { cursor: pointer; background: var(--accent-soft); }
+.hide-ko .rd-ch small { visibility: hidden; }
+.hide-ko .rd-ch.show small { visibility: visible; }
+.rd-sl { align-self: flex-start; padding-top: 3px; font-style: normal; font-weight: 800; color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.rd-full { margin: 6px 0 0; }
+.rd-ko { margin-top: 6px; padding: 9px 12px; font-size: 14.5px; line-height: 1.6; background: var(--accent-soft); border-radius: 12px; }
+.rd-tip { margin-top: 8px; padding: 8px 12px; font-size: 13px; line-height: 1.55; color: #7a4a00; background: #fff7e6; border-radius: 10px; }
+.rd-where { font-size: 12px; font-weight: 800; color: var(--sub); }
+.rd-en { margin: 6px 0 12px; font-family: Georgia, 'Times New Roman', serif; font-size: 19px; line-height: 1.55; }
+.rd-ops { display: flex; flex-direction: column; gap: 8px; }
+.rd-op { display: flex; gap: 8px; align-items: flex-start; width: 100%; padding: 12px 14px; font: inherit; font-size: 15px; line-height: 1.5; text-align: left; color: inherit; background: var(--card); border: 2px solid var(--line); border-radius: 14px; cursor: pointer; }
+.rd-op i { flex: none; font-style: normal; font-weight: 800; color: var(--accent); }
+button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
+.rd-op.right { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, var(--card)); font-weight: 700; }
+.rd-op.wrong { border-color: #f59e0b; text-decoration: line-through; opacity: .7; }
+.rd-op.dim { opacity: .5; }
+.rd-hintbox { margin-top: 10px; }
+.rd-ta { width: 100%; resize: vertical; font-family: inherit; line-height: 1.5; }
+.rd-mine, .rd-model { margin-bottom: 8px; padding: 10px 13px; font-size: 15px; line-height: 1.55; border-radius: 12px; background: var(--bg); }
+.rd-model { background: var(--accent-soft); }
+.rd-self { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
+.rd-game .rd-chunks { margin-top: 8px; font-size: 15.5px; }
+.rd-bank { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; padding: 9px 11px; border: 2px dashed var(--line); border-radius: 12px; }
+.rd-bank span { padding: 2px 9px; font-size: 13.5px; font-weight: 700; background: var(--accent-soft); border-radius: 99px; }
+.jua-ops.rd-col { flex-direction: column; align-items: stretch; }
+.jua-ops.rd-col .jua-op { text-align: left; white-space: normal; }
+.jua-units.jua-read-nav { grid-template-columns: 1fr; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
