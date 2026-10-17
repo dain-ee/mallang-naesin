@@ -1281,8 +1281,9 @@
       : UI.quizScope === 'all' ? LESSONS.flatMap((l) => l.questions.map((q, i) => ({ q, key: `${l.no}:${i}`, no: l.no }))) : L.questions.map((q, i) => ({ q, key: `${L.no}:${i}`, no: L.no }));
     return src.filter(({ q }) => UI.quizCat === '전체' || (UI.quizCat === '서술형' ? q.type === 'short' : q.cat === UI.quizCat));
   }
-  // 한 번 푼 문제는 어디서 풀었든(숙제·실전) 번호에 맞음/틀림이 남음 — 2·3회차 숙제(since)는 그날 푼 것만
-  function seedQuiz(pool) { const picks = {}; pool.forEach((p) => { const r = S.qa[p.key]; if (r && (r.at || 0) >= (UI.qSince || 0)) picks[p.key] = { typed: '', ...r }; }); const i = pool.findIndex((p) => !picks[p.key]); return { pool, i: i < 0 ? 0 : i, picks }; }
+  // 한 번 푼 문제는 어디서 풀었든(숙제·실전) 번호에 「푼 문제」 표시만 — 맞음/틀림·정답은 안 보여 주고 문제는 새로 풀 수 있게 (2·3회차 숙제는 그날 푼 것만)
+  const solvedBefore = (key) => { const r = S.qa[key]; return !!r && (r.at || 0) >= (UI.qSince || 0); };
+  function seedQuiz(pool) { const i = pool.findIndex((p) => !solvedBefore(p.key)); return { pool, i: i < 0 ? 0 : i, picks: {} }; }
   function quiz(L) {
     if (UI.examSet !== 'all' && UI.quizScope === 'exam' && !exQs(EXAMS.find((e) => e.id === UI.examSet), L).length) { UI.examSet = 'all'; UI.quiz = null; } // 지금 고른 과에 없는 시험지면 전체로
     if (!UI.quiz) { const pool = qPool(L); UI.quiz = seedQuiz(UI.quizScope === 'all' || (UI.quizScope === 'exam' && UI.examSet === 'all') ? shuffle(pool) : pool); }
@@ -1299,7 +1300,7 @@
       (UI.quizScope === 'exam' && EXAMS.length > 1 ? `<div class="bar-row">${seg('examSet', [['all', '전체 섞기'], ...EXAMS.filter((e) => exQs(e, L).length).map((e) => [e.id, `${e.title.replace(/5-6과/, `5-6과 중 ${L.no}과`)} (${exQs(e, L).length})`])], UI.examSet)}</div>` : '');
     }
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; bindQuizTop(); return; }
-    html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
+    html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : solvedBefore(p.key) ? 'solved' : ''}" data-qi="${i}" type="button" ${!r && solvedBefore(p.key) ? 'title="전에 푼 문제"' : ''}>${i + 1}</button>`; }).join('')}</div>`;
     const answered = Object.values(Q.picks); const okN = answered.filter((r) => r.ok).length;
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
@@ -1589,7 +1590,7 @@
       (UI.hquizScope === 'exam' && HEXAMS.length > 1 ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], ...HEXAMS.map((e) => [e.id, `${e.title} (${e.questions.filter((q) => !hideQ(q)).length})`])], UI.hexamSet || 'all')}</div>` : '');
     if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
-    html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : ''}" data-qi="${i}" type="button">${i + 1}</button>`; }).join('')}</div>`;
+    html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : solvedBefore(p.key) ? 'solved' : ''}" data-qi="${i}" type="button" ${!r && solvedBefore(p.key) ? 'title="전에 푼 문제"' : ''}>${i + 1}</button>`; }).join('')}</div>`;
     const answered = Object.values(Q.picks), okN = answered.filter((r) => r.ok).length;
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];

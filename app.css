@@ -1191,6 +1191,8 @@ kbd { font: inherit; font-size: 11px; opacity: 0.75; border: 1px solid currentCo
 .qdot { width: 26px; height: 26px; padding: 0; font: inherit; font-size: 11px; font-weight: 800; color: var(--sub); background: var(--card); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font-variant-numeric: tabular-nums; }
 .qdot.on { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .qdot.right { background: color-mix(in srgb, var(--ok) 80%, transparent); color: #fff; border-color: transparent; }
+.qdot.solved { position: relative; color: var(--ink); background: color-mix(in srgb, var(--sub) 14%, var(--card)); }
+.qdot.solved::after { content: '✓'; position: absolute; top: -5px; right: -4px; font-size: 9px; line-height: 13px; width: 13px; height: 13px; border-radius: 50%; color: #fff; background: var(--sub); }
 .qdot.wrong { background: color-mix(in srgb, var(--err) 80%, transparent); color: #fff; border-color: transparent; }
 
 .empty { padding: 40px 20px; text-align: center; color: var(--sub); font-size: 14px; background: var(--card); border: 1px dashed var(--line); border-radius: var(--r); }
