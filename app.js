@@ -287,6 +287,7 @@
       ({ hhome, hconcept, hterms, hflow, hquiz, wrong, log: logView })[S.tab]?.(hunit());
     } else {
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
+      if (S.tab === 'perf' && !PERF) S.tab = 'home'; // 수행평가 끝(2026-10-17) — 원고는 content/perf.done.json 에 보관
       const L = lesson();
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
       ({ hw: hwView, perf, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
