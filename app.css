@@ -1914,6 +1914,15 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .jua-units.jua-read-nav { grid-template-columns: 1fr; }
 .kbd { margin-left: 6px; padding: 1px 6px; font-size: 11px; font-weight: 700; border-radius: 6px; background: rgba(255,255,255,.22); }
 @media (hover: none) { .kbd { display: none; } }
+/* 흐름 정리 — 순서대로 읽는 연표 (문제 아님) */
+.hsum h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.hsum-n { display: inline-grid; place-items: center; width: 22px; height: 22px; font-size: 12px; font-weight: 800; color: #fff; background: var(--accent); border-radius: 50%; }
+.htl-sum { list-style: none; padding-left: 0; border-left: 2px solid var(--accent-soft); margin-left: 10px; }
+.htl-sum li { position: relative; display: flex; gap: 10px; padding: 6px 0 6px 16px; margin: 0; }
+.htl-sum li::before { content: ''; position: absolute; left: -6px; top: 14px; width: 10px; height: 10px; border-radius: 50%; background: var(--card); border: 2px solid var(--accent); }
+.htl-sum li b { flex: none; min-width: 84px; margin: 0; }
+.htl-sum li b.arr { color: var(--sub); font-weight: 600; }
+@media (max-width: 560px) { .htl-sum li { flex-direction: column; gap: 0; } .htl-sum li b { min-width: 0; font-size: 12.5px; } }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {

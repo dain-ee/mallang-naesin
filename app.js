@@ -1587,7 +1587,16 @@
   // 사건을 일어난 순서대로 놓아요. 맞히면 연도와 함께 정리된 흐름이 보입니다.
   function hflow(U) {
     const F = U.flows || [];
-    main.innerHTML = head(`흐름 잇기 · ${esc(U.code)}`, '낱장을 눌러 일어난 순서대로 놓아요. 잘못 놓은 건 다시 누르면 돌아가요.') +
+    // 흐름 정리(먼저 읽기) ↔ 순서 맞히기 — 선생님 2026-10-18: «문제 말고 정리되어 있는 거»
+    const tabs = seg('hfm', [['sum', '흐름 정리'], ['quiz', '순서 맞히기']], UI.hfm || 'sum');
+    if ((UI.hfm || 'sum') === 'sum') {
+      main.innerHTML = head(`흐름 정리 · ${esc(U.code)}`, '일어난 순서대로 읽어요. 다 읽었으면 「순서 맞히기」로 확인해요.', tabs) +
+        `<div class="list">${F.filter((f) => !f.off).map((f, fi) => `<section class="card hflow hsum"><h3><span class="hsum-n">${fi + 1}</span>${esc(f.title)}</h3><ol class="htl htl-sum">${f.steps.map((x) => `<li>${x.y && x.y !== '→' ? `<b>${esc(x.y)}</b>` : '<b class="arr">↓</b>'}<span>${esc(x.t)}</span></li>`).join('')}</ol></section>`).join('')}</div>` +
+        `<div class="sc-foot"><span></span><button class="btn ok" id="to-fq" type="button">순서 맞히기 →</button></div>`;
+      $('#to-fq').onclick = () => { UI.hfm = 'quiz'; render(); scrollTo(0, 0); };
+      return;
+    }
+    main.innerHTML = head(`흐름 잇기 · ${esc(U.code)}`, '낱장을 눌러 일어난 순서대로 놓아요. 잘못 놓은 건 다시 누르면 돌아가요.', tabs) +
       `<div class="list">${F.map((f, fi) => {
         if (f.off) return ''; // 범위 밖 흐름
         const id = `h${U.no}:f:${fi}`, done = (S.dm || {})['flow:' + id] && !UI.redo[id];
