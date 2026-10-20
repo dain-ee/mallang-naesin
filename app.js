@@ -1327,6 +1327,12 @@
   }
   // 한 번 푼 문제는 어디서 풀었든(숙제·실전) 번호에 「푼 문제」 표시만 — 맞음/틀림·정답은 안 보여 주고 문제는 새로 풀 수 있게 (2·3회차 숙제는 그날 푼 것만)
   const solvedBefore = (key) => { const r = S.qa[key]; return !!r && (r.at || 0) >= (UI.qSince || 0); };
+  // 다음 문제 — 이미 푼 것(✓)은 건너뛰고 안 푼 문제로. 다 풀었으면 그냥 바로 다음 (선생님 2026-10-20)
+  function nextQ(Q) {
+    const n = Q.pool.length, todo = (k) => !Q.picks[Q.pool[k].key] && !solvedBefore(Q.pool[k].key);
+    for (let d = 1; d < n; d++) { const k = (Q.i + d) % n; if (todo(k)) return k; }
+    return Math.min(Q.i + 1, n - 1);
+  }
   function seedQuiz(pool) { const i = pool.findIndex((p) => !solvedBefore(p.key)); return { pool, i: i < 0 ? 0 : i, picks: {} }; }
   function quiz(L) {
     if (UI.examSet !== 'all' && !LV[UI.examSet]) { UI.examSet = 'all'; UI.quiz = null; } // 예전 출처별 선택은 전체로
@@ -1349,13 +1355,13 @@
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
-      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && Q.i < Q.pool.length - 1 ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
+      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${nextQ(Q) === Q.i ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && nextQ(Q) !== Q.i ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
     main.innerHTML = html;
     bindQuizTop();
     bindQuestion(cur, (r) => { Q.picks[cur.key] = r; render(); });
     main.querySelectorAll('[data-qi]').forEach((b) => (b.onclick = () => { Q.i = +b.dataset.qi; render(); }));
     $('#q-prev').onclick = () => { Q.i--; render(); };
-    $('#q-next').onclick = () => { Q.i++; render(); };
+    $('#q-next').onclick = () => { Q.i = nextQ(Q); render(); };
     const rd = $('#q-redo'); if (rd) rd.onclick = () => { delete Q.picks[cur.key]; render(); };
   }
   function bindQuizTop() { const r = $('#q-reset'); if (r) r.onclick = () => { UI.quiz = null; render(); }; const a = $('#q-all'); if (a) a.onclick = () => { UI.quizOnly = null; UI.quiz = null; render(); }; }
@@ -1652,13 +1658,13 @@
     if (answered.length === Q.pool.length) html += `<div class="card done-card" style="margin-bottom:14px"><span class="big">${okN} / ${Q.pool.length} 맞혔어요</span><span class="sub">틀린 문제는 오답노트에 모였어요. 다시 맞히면 바로 빠져요.</span></div>`;
     const cur = Q.pool[Q.i];
     html += `<div class="qwrap">${questionCard(cur, Q.picks[cur.key], Q.i + 1)}
-      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${Q.i >= Q.pool.length - 1 ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && Q.i < Q.pool.length - 1 ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
+      <div class="actions"><button class="btn" id="q-prev" type="button" ${Q.i === 0 ? 'disabled' : ''}>← 이전</button>${Q.picks[cur.key] ? '<button class="btn ghost" id="q-redo" type="button">↺ 다시 풀기</button>' : ''}<button class="btn primary" id="q-next" type="button" ${nextQ(Q) === Q.i ? 'disabled' : ''}>다음 →${Q.picks[cur.key] && nextQ(Q) !== Q.i ? ' <span class="kbd">Enter</span>' : ''}</button></div></div>`;
     main.innerHTML = html;
     hBindTop();
     bindQuestion(cur, (r) => { Q.picks[cur.key] = r; render(); });
     main.querySelectorAll('[data-qi]').forEach((b) => (b.onclick = () => { Q.i = +b.dataset.qi; render(); }));
     $('#q-prev').onclick = () => { Q.i--; render(); };
-    $('#q-next').onclick = () => { Q.i++; render(); };
+    $('#q-next').onclick = () => { Q.i = nextQ(Q); render(); };
     const rd = $('#q-redo'); if (rd) rd.onclick = () => { delete Q.picks[cur.key]; render(); };
   }
   function hBindTop() { const r = $('#q-reset'); if (r) r.onclick = () => { UI.hquiz = null; render(); }; const a = $('#q-all'); if (a) a.onclick = () => { UI.quizOnly = null; UI.hquiz = null; render(); }; }
@@ -1996,9 +2002,9 @@
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || e.shiftKey || !e.target.isConnected) return; // 채점한 그 Enter(칸이 다시 그려져 사라짐)는 건너뜀
     const Q = S.tab === 'quiz' ? UI.quiz : S.tab === 'hquiz' ? UI.hquiz : null, a = document.activeElement;
-    if (!Q || !Q.pool[Q.i] || !Q.picks[Q.pool[Q.i].key] || Q.i >= Q.pool.length - 1) return;
+    if (!Q || !Q.pool[Q.i] || !Q.picks[Q.pool[Q.i].key] || nextQ(Q) === Q.i) return;
     if (a && (/INPUT|TEXTAREA|SELECT/.test(a.tagName) && !a.disabled || a.tagName === 'BUTTON')) return; // 버튼에 포커스면 그 버튼이 알아서
-    e.preventDefault(); Q.i++; render();
+    e.preventDefault(); Q.i = nextQ(Q); render();
     const f = main.querySelector('.q-card textarea:not([disabled])'); if (f) f.focus({ preventScroll: true }); // 서술형이면 바로 쓰기
     const qw = main.querySelector('.qwrap'); if (qw && qw.getBoundingClientRect().top < 0) qw.scrollIntoView({ block: 'start', behavior: 'smooth' });
   });
