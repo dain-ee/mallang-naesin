@@ -1924,6 +1924,13 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .htl-sum li b.arr { color: var(--sub); font-weight: 600; }
 @media (max-width: 560px) { .htl-sum li { flex-direction: column; gap: 0; } .htl-sum li b { min-width: 0; font-size: 12.5px; } }
 
+/* 단원평가 큰 배너 (선생님 예상문제) — 수행평가 배너 틀, 색만 다르게 */
+.exam-banner { padding: 22px 24px; background: linear-gradient(120deg, #4f5bd5, #8a6cf0); box-shadow: 0 12px 28px -14px rgba(79, 91, 213, .85); }
+.exam-banner.l6 { background: linear-gradient(120deg, #0f9d8a, #3cc3a0); box-shadow: 0 12px 28px -14px rgba(15, 157, 138, .85); }
+.exam-banner b { font-size: 26px; }
+.exam-banner .perf-go { color: #4f5bd5; }
+.exam-banner.l6 .perf-go { color: #0f9d8a; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

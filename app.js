@@ -319,13 +319,27 @@
 
   // ───────── 수행평가 원고 ─────────
   const perfItems = () => PERF.sents.map((x, i) => ({ id: `${PERF.key || 'pf'}:${i}`, en: x.en, ko: x.ko, group: '수행평가 원고', sp: `${i + 1}` }));
+  // 단원평가 큰 배너 — 선생님 예상문제(교과서 지도서 단원평가). 학교 시험과 거의 똑같이 나옴 (선생님 2026-10-20: «굉장히 중요»)
+  function examBanners() {
+    if (isHist()) return '';
+    return [5, 6].map((no) => { const L = LESSONS.find((l) => l.no === no), pages = L && L.school && L.school.sections ? L.school.sections.exam || [] : [];
+      if (!pages.length) return '';
+      const st = scPages(L, pages).map((p) => scPageStat(L, p)).reduce((a, b) => ({ n: a.n + b.n, ok: a.ok + b.ok, done: a.done + b.done }), { n: 0, ok: 0, done: 0 });
+      return `<button class="perf-banner exam-banner l${no}" data-exam="${no}" type="button"><span class="perf-eyebrow">⭐ 선생님 예상문제 · 학교 시험과 거의 똑같이 나와요</span><b>${no}과 단원평가 ${st.n}문제</b><span class="perf-sub">${st.done ? `${st.done}/${st.n} 풂 · ${st.ok}개 맞힘` : '아직 안 풀었어요'} · 교과서 지도서 ${pages.length}쪽</span><span class="perf-go">${st.done >= st.n && st.n ? '다시 보기 ›' : '풀러 가기 ›'}</span></button>`; }).join('');
+  }
   function perfBanner() {
-    if (!PERF || isHist()) return '';
+    if (!PERF || isHist()) return examBanners();
     const t = new Date(todayKey() + 'T00:00:00'), it = perfItems(), m = memCount(it);
     const dd = PERF.dates.map((d) => { const n = Math.round((new Date(d.date + 'T00:00:00') - t) / 864e5); return `${d.label} ${n > 0 ? `D-${n}` : n === 0 ? '오늘!' : '끝'}`; }).join(' · ');
-    return `<button class="perf-banner" data-perf type="button"><span class="perf-eyebrow">📝 수행평가 · ${esc(dd)}</span><b>${esc(PERF.title)}</b><span class="perf-sub">원고 ${PERF.sents.length}문장 외우기 — ${m}/${it.length} 외움</span><span class="perf-go">외우러 가기 ›</span></button>`;
+    return examBanners() + `<button class="perf-banner" data-perf type="button"><span class="perf-eyebrow">📝 수행평가 · ${esc(dd)}</span><b>${esc(PERF.title)}</b><span class="perf-sub">원고 ${PERF.sents.length}문장 외우기 — ${m}/${it.length} 외움</span><span class="perf-go">외우러 가기 ›</span></button>`;
   }
-  function bindPerfBanner() { main.querySelectorAll('[data-perf]').forEach((b) => (b.onclick = () => go('perf'))); }
+  function bindPerfBanner() {
+    main.querySelectorAll('[data-perf]').forEach((b) => (b.onclick = () => go('perf')));
+    main.querySelectorAll('[data-exam]').forEach((b) => (b.onclick = () => { const no = +b.dataset.exam, L = LESSONS.find((l) => l.no === no), pages = L.school.sections.exam;
+      if (S.lesson !== no) { loading(no); S.lesson = no; }
+      const first = pages.find((p) => { const pg = L.school.pages.find((x) => x.no === p), st = scPageStat(L, pg); return st.done < st.n; }) || pages[0];
+      UI.hwT = null; UI.scMode = 'print'; UI.spage = L.school.pages.findIndex((p) => p.no === first); UI.scHw = { t: `${no}과 단원평가 (선생님 예상문제)`, pages }; UI.fromHw = 1; go('school'); UI.fromHw = 0; }));
+  }
   function perf() {
     if (!PERF) { S.tab = 'home'; render(); return; }
     const it = perfItems();
