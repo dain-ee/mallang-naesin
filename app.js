@@ -267,7 +267,7 @@
   }
   function setUnit(no) { if (no !== S.hunit) loading(no, true); S.hunit = no; UI.hsecs = null; UI.htest = null; UI.hquiz = null; save(true); render(); }
   function setLesson(no) { if (no !== S.lesson) loading(no); S.lesson = no; UI.rpart = 0; UI.card = 0; UI.cardFlip = false; UI.test = null; UI.quiz = null; save(); render(); }
-  function go(tab) { if (!UI.fromHw) { UI.qSince = 0; if (tab === 'hquiz' && UI.hexamSet && !LV[UI.hexamSet]) UI.hexamSet = 'all'; } /* 메뉴로 들어오면 숙제 시험지 대신 난이도별 */ if (tab === 'quiz') UI.quiz = null; if (tab === 'hquiz') UI.hquiz = null; /* 들어올 때마다 기록에서 다시 — 숙제에서 푼 것도 보이게 */ if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
+  function go(tab) { if (!UI.fromHw) { UI.qSince = 0; UI.onlyIds = null; if (tab === 'hquiz' && UI.hexamSet && !LV[UI.hexamSet]) UI.hexamSet = 'all'; } /* 메뉴로 들어오면 숙제 시험지 대신 난이도별 */ if (tab === 'quiz') UI.quiz = null; if (tab === 'hquiz') UI.hquiz = null; /* 들어올 때마다 기록에서 다시 — 숙제에서 푼 것도 보이게 */ if (tab !== 'quiz' && tab !== 'hquiz') UI.quizOnly = null; if (tab !== 'reading') UI.paras = null; S.tab = tab; UI.test = null; save(); render(); window.scrollTo(0, 0); }
 
   // 단원을 바꾸면 유령이 잠깐 날아와 '5과 불러오는 중' — 바뀐 걸 확실히 느끼게.
   function loading(no, hs) {
@@ -763,10 +763,12 @@
   function drill(items, scopeKey) {
     const mode = UI.drill;
     let list = items;
+    const hwIds = UI.onlyIds && items.some((x) => UI.onlyIds.includes(x.id)) ? UI.onlyIds : null; // 숙제로 정한 문장만
+    if (hwIds) list = list.filter((x) => hwIds.includes(x.id));
     if (UI.onlyKey) list = list.filter((x) => x.key);
     if (UI.onlyTodo) list = list.filter((x) => !S.mem[x.id]);
     const done = memCount(items);
-    let html = `<div class="bar-row">${seg('drill', DRILLS, mode)}<span class="grow"></span>
+    let html = (hwIds ? `<div class="hw-banner">📌 숙제: 이 ${list.length}문장만 보는 중 <button class="link" data-allids type="button">전체 보기</button></div>` : '') + `<div class="bar-row">${seg('drill', DRILLS, mode)}<span class="grow"></span>
       <label class="hint"><input type="checkbox" data-flt="onlyKey" ${UI.onlyKey ? 'checked' : ''} style="width:auto"> ★ 중요만</label>
       <label class="hint"><input type="checkbox" data-flt="onlyTodo" ${UI.onlyTodo ? 'checked' : ''} style="width:auto"> 안 외운 것만</label>
       <span class="badge ok">${done} / ${items.length} 외움</span></div>
@@ -816,6 +818,7 @@
   }
 
   function bindDrill(items) {
+    const al = main.querySelector('[data-allids]'); if (al) al.onclick = () => { UI.onlyIds = null; render(); };
     const byId = Object.fromEntries(items.map((x) => [x.id, x]));
     main.querySelectorAll('[data-redo]').forEach((b) => (b.onclick = () => { UI.redo[b.dataset.redo] = 1; const y = scrollY; render(); scrollTo(0, y); }));
     main.querySelectorAll('[data-flt]').forEach((c) => (c.onchange = () => { UI[c.dataset.flt] = c.checked; render(); }));
@@ -1336,7 +1339,7 @@
   function seedQuiz(pool) { const i = pool.findIndex((p) => !solvedBefore(p.key)); return { pool, i: i < 0 ? 0 : i, picks: {} }; }
   function quiz(L) {
     if (UI.examSet !== 'all' && !LV[UI.examSet]) { UI.examSet = 'all'; UI.quiz = null; } // 예전 출처별 선택은 전체로
-    if (!UI.quiz) { const pool = qPool(L); UI.quiz = seedQuiz(UI.quizScope === 'all' || (UI.quizScope === 'exam' && UI.examSet === 'all') ? shuffle(pool) : pool); }
+    if (!UI.quiz) { const pool = qPool(L); UI.quiz = seedQuiz(UI.quizScope === 'all' || (UI.quizScope === 'exam' && UI.examSet === 'all') ? shuffle(pool, `q:${L.no}:${UI.quizScope}:${UI.quizCat}`) : pool); } // 섞어도 번호는 늘 같게 (들어올 때마다 바뀌면 헷갈림)
     const Q = UI.quiz;
     const st = quizStats(L);
     // 숙제로 들어오면 숙제 문제 수만 보이게 — 다른 묶음 숫자(270·20…)는 숨김 (2026-10-16 선생님: 화면 20문제·숙제 10문제면 헷갈림)
@@ -1644,7 +1647,7 @@
   }
   function hquiz(U) {
     UI.hquizScope = UI.hquizScope || (HEXAMS.length ? 'exam' : 'one');
-    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = seedQuiz(UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool) : pool); }
+    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = seedQuiz(UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool, `h:${U.no}:${UI.hquizScope}:${UI.hquizCat || ''}`) : pool); }
     const Q = UI.hquiz, st = hQuizStats(U);
     const scopes = [...(HEXAMS.length ? [['exam', `기출 · ${esc(U.code)} (${hxAll(U).length})`]] : []), ['one', `이 단원 (${U.questions.filter((q) => !q.off).length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
     const ex = HEXAMS.find((e) => e.id === UI.hexamSet);
@@ -1716,7 +1719,7 @@
     }
     if (c.type === 'pickSet') {
       const keys = ((S.hwSets || {})[c.id] || null) && S.hwSets[c.id].filter((k) => { const x = qByKey(k); return x && !hideQ(x.q); }); // 범위 밖으로 숨긴 문제는 빼고 셈
-      if (!keys) return { ok: false, txt: '열면 새 문제 10개를 뽑아요' };
+      if (!keys) return { ok: false, txt: '열면 아직 안 푼 문제로 뽑아요' };
       const done = keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length;
       return { ok: done.length >= keys.length, txt: `${done.length}/${keys.length}문제 풂 · ${ok}개 맞힘` };
     }
@@ -1739,7 +1742,7 @@
       .filter(({ q }) => (q.lesson == null || q.lesson === lesson) && !hideQ(q));
     const txt = (q) => `${q.q} ${q.passage || ''} ${Array.isArray(q.choices) ? q.choices.join(' ') : ''}`;
     const part = (q) => Object.keys(PART_RE).filter((p) => PART_RE[p].test(txt(q)));
-    return all.filter(({ q }) => tags.some((t) => (t === 'RD' ? q.cat === '본문' : t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : t === 'GM' ? !part(q).length && q.cat === '문법' : part(q).includes(t)))).map((x) => x.key); // GM = 문법만
+    return all.filter(({ q }) => tags.some((t) => (t === 'RD' ? q.cat === '본문' : t === 'G' ? !part(q).length && ['문법', '어휘', '의사소통'].includes(q.cat) : t === 'GM' ? !part(q).length && q.cat === '문법' : t === 'CM' ? q.cat === '의사소통' : t === 'ED' ? /영영/.test(q.q || '') : t === 'GR' ? q.cat === '문법' : t === 'VO' ? q.cat === '어휘' : part(q).includes(t)))).map((x) => x.key); // GM = 문법만 · CM 의사소통 · ED 영영풀이 · GR 문법 · VO 어휘
   }
   function hwEnsurePicks(d) {
     if (TEACHER) return;
@@ -1748,6 +1751,12 @@
     let changed = false;
     d.tasks.forEach((t) => {
       if (!t.pick || S.hwSets[t.pick.id]) return;
+      if (t.pick.mix) { // 영역마다 n문제씩 섞기 — 예: 5과·6과 × 의사소통·영영풀이·문법·본문 1문제씩 (모자라면 fb 태그로)
+        const got = []; t.pick.mix.forEach((m) => { let c = shuffle(pickPool(m.tags, m.lesson).filter((k) => !used.has(k))).slice(0, m.n || 1); if (c.length < (m.n || 1) && m.fb) c = c.concat(shuffle(pickPool(m.fb, m.lesson).filter((k) => !used.has(k) && !c.includes(k))).slice(0, (m.n || 1) - c.length));
+          if (c.length < (m.n || 1)) { const sets = new Set(Object.values(S.hwSets).flat()); c = c.concat(shuffle(pickPool(m.tags, m.lesson).filter((k) => !sets.has(k) && !got.includes(k) && !c.includes(k))).slice(0, (m.n || 1) - c.length)); } // 안 푼 게 없으면 예전에 푼 문제에서 다시
+          c.forEach((k) => used.add(k)); got.push(...c); });
+        S.hwSets[t.pick.id] = got; changed = true; return;
+      }
       const pool = shuffle(pickPool(t.pick.tags, (t.go && t.go.lesson) || 5).filter((k) => !used.has(k)));
       S.hwSets[t.pick.id] = pool.slice(0, t.pick.n); S.hwSets[t.pick.id].forEach((k) => used.add(k)); changed = true;
     });
@@ -1776,6 +1785,7 @@
     if (g.pickSet) { hwEnsurePicks(hwDayOf(t)); g = { ...g, quizOnly: (S.hwSets || {})[g.pickSet] || [] }; }
     UI.noteReview = !!g.review;
     UI.paras = g.paras || null; UI.partName = g.partName || null; // 그날 외울 부분만
+    UI.onlyIds = g.ids || null;
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     if (g.hquizScope) { UI.hquizScope = g.hquizScope; UI.hquiz = null; }
     if (g.hexamSet) UI.hexamSet = g.hexamSet;
