@@ -2132,6 +2132,19 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 @media (max-width: 640px) { .fv-c { grid-template-columns: 1fr; gap: 2px; } }
 @media (prefers-color-scheme: dark) {:root:not([data-theme="light"]) .fv-st { background: var(--card); border-color: var(--line); }:root:not([data-theme="light"]) .fv-pat, :root:not([data-theme="light"]) .fv-ex { color: var(--ink); }:root:not([data-theme="light"]) .fv-pat span, :root:not([data-theme="light"]) .fv-verbs { color: var(--sub); } }
 
+/* 3형식 ↔ 4형식 카드 */
+.fo-card { border-color: #b2f2bb; } .fo-card .gt-eyebrow { color: #2b8a3e; }
+.fo-shapes { display: grid; gap: 6px; margin-bottom: 4px; } .fo-shapes > div { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .fo-shapes .fv-shape { margin: 0; }
+.fo-card .fv-shape span:nth-of-type(3), .fo-card .fv-shape span:nth-of-type(4) { border: 1px solid var(--line); box-shadow: none; }
+.fo-k { display: inline-block; min-width: 46px; margin-right: 8px; font-size: 12px; font-weight: 800; color: #2b8a3e; }
+.fo-p { color: #2b8a3e; }
+.fo-rows { display: grid; gap: 8px; }
+.fo-row { display: grid; gap: 2px; padding: 10px 14px; border-radius: 14px; background: #ebfbee; border: 1px solid #b2f2bb; font-size: 14.5px; line-height: 1.7; color: #1f2733; }
+.fo-dir { font-size: 13px; font-weight: 800; color: #2b8a3e; }
+.fo-opts { display: grid; gap: 8px; width: 100%; max-width: 640px; } .fo-opts .btn { justify-content: flex-start; text-align: left; white-space: normal; height: auto; padding: 10px 14px; line-height: 1.45; }
+@media (prefers-color-scheme: dark) {:root:not([data-theme="light"]) .fo-row { background: var(--card); border-color: var(--line); color: var(--ink); } }
+.fo-card b.fo-p { border: 0; padding: 0; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
@@ -2177,6 +2190,7 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 :root[data-theme="dark"] .gt-g, :root[data-theme="dark"] .gt-ing, :root[data-theme="dark"] .gt-to, :root[data-theme="dark"] .gt-both, :root[data-theme="dark"] .gt-diff { background: var(--card); border-color: var(--line); }:root[data-theme="dark"] .gt-t, :root[data-theme="dark"] .gt-v b, :root[data-theme="dark"] .gt-ex { color: var(--ink); }:root[data-theme="dark"] .gt-v { background: var(--line-soft); color: var(--mid); }:root[data-theme="dark"] .gt-tip { color: var(--sub); }:root[data-theme="dark"] .notes-i.star { background: rgba(253, 126, 20, .14); }
 
 :root[data-theme="dark"] .fv-st { background: var(--card); border-color: var(--line); }:root[data-theme="dark"] .fv-pat, :root[data-theme="dark"] .fv-ex { color: var(--ink); }:root[data-theme="dark"] .fv-pat span, :root[data-theme="dark"] .fv-verbs { color: var(--sub); } 
+:root[data-theme="dark"] .fo-row { background: var(--card); border-color: var(--line); color: var(--ink); } 
 :root:not([data-theme="light"]) { } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } } :root[data-theme="dark"] { color-scheme: dark; }
 
 /* Artifact: 휴대폰 safe-area 안쪽에서 */ .sidebar { padding-top: max(22px, env(safe-area-inset-top, 0px)); } @media (max-width: 560px) { .main { padding: 14px 16px 60px; } .page-head h2 { font-size: 19px; } .seg button { padding: 7px 10px; font-size: 12.5px; } }

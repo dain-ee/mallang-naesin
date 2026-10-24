@@ -417,7 +417,7 @@
         <span class="route-prog"><span class="bar"><span style="width:${pct(a, b)}%"></span></span><span class="route-m">${a} / ${b}${unit}</span></span>
         <span class="route-go" aria-hidden="true">›</span>
       </button>`;
-    main.innerHTML = perfBanner() + notesBanner() + fiveCard() + gtableCard() + `
+    main.innerHTML = perfBanner() + notesBanner() + fiveCard() + fourCard() + gtableCard() + `
       <nav class="lesson-tabs" aria-label="단원">${LESSONS.map((l) => `<button class="ltab ${l.no === L.no ? 'on' : ''}" data-l="${l.no}" type="button"><b>${l.no}과</b><span>${esc(l.title)}</span></button>`).join('')}</nav>
       <section class="banner"><div><h1>Lesson ${L.no}. ${esc(L.title)}</h1><p>본문 「${esc(L.readingTitle)}」</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
@@ -434,6 +434,7 @@
     bindPerfBanner();
     bindGtable();
     bindFive();
+    bindFour();
   }
 
   // ───────── 학교 선생님 필기 · 꼭 외울 표 ─────────
@@ -487,6 +488,32 @@
     main.querySelectorAll('[data-fvq]').forEach((b) => (b.onclick = () => { UI.fvq = b.dataset.fvq === 'off' ? null : mk(); again(); }));
     main.querySelectorAll('[data-fvk]').forEach((b) => (b.onclick = () => { const q = UI.fvq; q.pick = +b.dataset.fvk; if (q.pick === q.pool[q.i][2]) q.ok++; again(); }));
     main.querySelectorAll('[data-fvn]').forEach((b) => (b.onclick = () => { const q = UI.fvq; q.i++; q.pick = null; again(); }));
+  }
+  // 3형식 ↔ 4형식 (선생님 2026-10-24: «필기 중에서 3→4 4→3 문제만 따로 카드») — 문장은 필기 것만. 퀴즈는 UI 만
+  function fourCard() {
+    if (!NOTES || !NOTES.four || isHist()) return '';
+    const F = NOTES.four, q = UI.foq;
+    let body;
+    if (q) {
+      const cur = q.pool[q.i];
+      body = !cur ? `<div class="gt-q"><b>${q.ok} / ${q.pool.length} 맞힘</b><div class="actions"><button class="btn ok" data-foq="again" type="button">다시 섞어서</button><button class="btn ghost" data-foq="off" type="button">설명 보기</button></div></div>`
+        : `<div class="gt-q"><div class="gt-qn">${q.i + 1} / ${q.pool.length} · 맞힘 ${q.ok}</div><div class="fo-dir">${cur.dir === '4→3' ? '4형식 → 3형식으로' : '3형식 → 4형식으로'} 바꾸면?</div><div class="fv-qs">${esc(cur.s)}</div>${q.pick == null
+          ? `<div class="fo-opts">${cur.opts.map((o, k) => `<button class="btn" data-fok="${k}" type="button">${esc(o)}</button>`).join('')}</div>`
+          : `<div class="gt-last ${q.pick === cur.a ? 'ok' : 'no'}">${q.pick === cur.a ? '정답!' : `틀렸어요 — 정답은 <b>${esc(cur.opts[cur.a])}</b>`}</div><div class="fv-why">${esc(cur.why)}</div><button class="btn ok" data-fon type="button">다음 문제</button>`}<button class="link" data-foq="off" type="button">그만하고 설명 보기</button></div>`;
+    } else body = `<div class="fo-shapes"><div><span class="fo-k">4형식</span><div class="fv-shape">${F.shape4.map((x) => `<span>${rich(x)}</span>`).join('<i>+</i>')}</div></div><div><span class="fo-k">3형식</span><div class="fv-shape">${F.shape3.map((x) => `<span>${rich(x)}</span>`).join('<i>+</i>')}</div></div></div>
+      <p class="fv-key">🔑 전치사: ${F.preps.map(([p, v]) => `<b class="fo-p">${esc(p)}</b> ${esc(v)}`).join(' · ')} <span class="fv-legend"><b>네모</b> ~에게 · <u>밑줄</u> ~을</span></p>
+      <div class="fo-rows">${F.rows.map(([four, three, src]) => `<div class="fo-row"><div><span class="fo-k">4</span>${rich(four)}</div><div><span class="fo-k">3</span>${rich(three)}</div><span class="gt-src">${esc(src)}</span></div>`).join('')}</div>
+      <div class="fv-wrong"><div class="gt-t">주의</div><div class="fv-w"><span class="ok">○ ${rich(F.warn[0])}</span><span class="no">${esc(F.warn[1])}</span><span class="gt-src">${esc(F.warn[2])}</span></div></div>
+      <div class="actions"><button class="btn ok" data-foq="on" type="button">바꾸기 퀴즈 (${F.quiz.length}문제)</button></div>`;
+    return `<section class="card gt-card fv-card fo-card"><div class="gt-eyebrow">🔁 선생님 필기 · 3형식 ↔ 4형식</div><h2 class="gt-h">${esc(F.title)}</h2><p class="gt-why">${esc(F.why)}</p>${body}</section>`;
+  }
+  function bindFour() {
+    const again = () => { const y = scrollY; render(); scrollTo(0, y); };
+    const shuf = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const mk = () => ({ pool: shuf(NOTES.four.quiz).map(([dir, s, opts, why]) => { const o = shuf(opts); return { dir, s, opts: o, a: o.indexOf(opts[0]), why }; }), i: 0, ok: 0, pick: null });
+    main.querySelectorAll('[data-foq]').forEach((b) => (b.onclick = () => { UI.foq = b.dataset.foq === 'off' ? null : mk(); again(); }));
+    main.querySelectorAll('[data-fok]').forEach((b) => (b.onclick = () => { const q = UI.foq; q.pick = +b.dataset.fok; if (q.pick === q.pool[q.i].a) q.ok++; again(); }));
+    main.querySelectorAll('[data-fon]').forEach((b) => (b.onclick = () => { const q = UI.foq; q.i++; q.pick = null; again(); }));
   }
   function notesBanner() {
     if (!NOTES || isHist()) return '';
