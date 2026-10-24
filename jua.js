@@ -22,7 +22,7 @@
   const HERE = (() => { try { return JSON.parse(sessionStorage.getItem('jua:here') || 'null'); } catch (e) { return null; } })();
   if (HERE && HERE.step != null) { S.step = HERE.step; if (HERE.unit) S.unit = HERE.unit; }
   else if (HW && HW.days.some((d) => d.date >= todayKey())) S.step = 'hw'; // 숙제가 있으면 숙제부터
-  if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write'].includes(S.step)) S.step = 2;
+  if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write', 'listen'].includes(S.step)) S.step = 2;
   let pushT = null;
   const save = (local) => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!local) schedule(); };
 
@@ -53,12 +53,13 @@
     const etc = (DATA.words || {}).words ? `<div class="jua-book"><div class="jua-book-h">🔤 지난 단어 시험</div><div class="jua-quick jua-book-x">${nb('words', '🔤', 'Day 18·19 단어', wLeft() || '')}</div></div>` : '';
     // ✏️ Writing — 주제마다 한 칸 (2026-10-24 선생님: 앞으로 writing 계속)
     const wri = WRS.length ? `<div class="jua-book"><div class="jua-book-h">✏️ Writing</div><div class="jua-quick jua-book-x">${WRS.slice().reverse().map((w) => { const n = wCount((S.wrt || {})[w.id]); return `<button class="nav-item ${S.step === 'write' && S.wid === w.id ? 'is-on' : ''}" data-st="write" data-w="${w.id}" type="button"><i class="ni">✏️</i><span class="jua-nt">${esc(w.title)}</span><span class="tally ${n >= w.goal ? 'full' : ''}">${n}/${w.goal}</span></button>`; }).join('')}</div></div>` : '';
-    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}</div>` + wri + read + gram + etc;
+    const lis = LIS.length ? `<div class="jua-book"><div class="jua-book-h">🎧 ${esc(LU.book)} · Unit ${LU.unit}</div><div class="jua-quick jua-book-x">${Object.entries(LMODE).map(([k, [ic, nm]]) => { const [a, b2] = lTally(k); return `<button class="nav-item ${S.step === 'listen' && UI.lmode === k ? 'is-on' : ''}" data-st="listen" data-lm="${k}" type="button"><i class="ni">${a && a >= b2 ? '♡' : ic}</i><span class="jua-nt">${nm}</span>${b2 ? `<span class="tally ${a >= b2 ? 'full' : ''}">${a}/${b2}</span>` : ''}</button>`; }).join('')}</div></div>` : '';
+    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}</div>` + lis + wri + read + gram + etc;
     $('#who-name').textContent = S.who || '주아';
     $('#who-edit').textContent = '로그아웃';
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0);
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (b.dataset.w) S.wid = b.dataset.w; if (b.dataset.rm) { UI.rmode = b.dataset.rm; RQ.q = null; } save(true); goFx(b); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write', 'listen'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (b.dataset.w) S.wid = b.dataset.w; lStop(); if (b.dataset.lm) UI.lmode = b.dataset.lm; if (b.dataset.rm) { UI.rmode = b.dataset.rm; RQ.q = null; } save(true); goFx(b); });
   // 메뉴 칸을 누르면: 칸이 톡 눌리고 → 위에 분홍 로딩 줄 → 내용이 살짝 떠오르며 나타나고, 폰에서는 내용 있는 곳으로 내려감
   function goFx(btn, top) {
     const key = `${S.unit}:${S.step}`;
@@ -300,6 +301,69 @@
   // 고르기 선택지는 문장마다 순서를 고정 (다시 열어도 같은 자리)
   const seeded = (arr, seed) => { let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0; const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { h = (h * 1103515245 + 12345) >>> 0; const j = h % (i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const chunkHtml = (x, hideKo) => `<div class="rd-chunks ${hideKo ? 'hide-ko' : ''}">${x.chunks.map(([en, ko], i) => `<span class="rd-ch" data-ch><b>${esc(en)}</b><small>${esc(ko)}</small></span>${i < x.chunks.length - 1 ? '<i class="rd-sl">/</i>' : ''}`).join('')}</div>`;
+  // ───────── 🎧 Listening Live ─────────
+  // 주아한테는 통째로 듣기가 너무 어려움(선생님 2026-10-24) → ① 단어 ② 한 문장씩 듣기(그 부분만 재생 · 뜻) ③ 교과서 문제(근거 문장 다시 듣기) ④ 빈칸 받아쓰기
+  const LIS = DATA.listening || [], LU = LIS[LIS.length - 1] || { tracks: [], words: [] };
+  const LMODE = { words: ['🔤', '① 단어'], lines: ['👂', '② 한 문장씩 듣기'], quiz: ['✅', '③ 교과서 문제'], dict: ['✍️', '④ 빈칸 받아쓰기'] };
+  const lKey = (t, kind, i) => `${LU.unit}:${t}:${kind}${i}`;
+  function lTally(m) { const lp = S.lp || {};
+    if (m === 'words') return [LU.words.filter((w) => lp[`${LU.unit}:w:${w[0]}`]).length, LU.words.length];
+    if (m === 'lines') return [LU.tracks.reduce((a, t) => a + t.lines.filter((_, i) => lp[lKey(t.id, 'l', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.lines.length, 0)];
+    if (m === 'quiz') return [LU.tracks.reduce((a, t) => a + t.qs.filter((_, i) => lp[lKey(t.id, 'q', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.qs.length, 0)];
+    return [LU.tracks.reduce((a, t) => a + t.lines.filter((l, i) => l.key && lp[lKey(t.id, 'd', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.lines.filter((l) => l.key).length, 0)]; }
+  let lAud = null, lStopT = null;
+  function lStop() { clearTimeout(lStopT); if (lAud) lAud.pause(); document.querySelectorAll('.ls-play.on').forEach((b) => b.classList.remove('on')); }
+  function lPlay(url, s, e, btn) { // 한 문장만: s초부터 e초까지 (e 없으면 끝까지)
+    lStop(); if (!lAud) { lAud = new Audio(); lAud.preload = 'auto'; }
+    if (lAud.dataset.u !== url) { lAud.src = url; lAud.dataset.u = url; }
+    const rate = UI.lslow ? 0.8 : 1; lAud.playbackRate = rate;
+    const go = () => { lAud.currentTime = Math.max(0, s - 0.15); lAud.play().catch(() => {}); if (btn) btn.classList.add('on'); if (e) lStopT = setTimeout(lStop, (e - s + 0.45) * 1000 / rate); };
+    if (lAud.readyState >= 1) go(); else lAud.addEventListener('loadedmetadata', go, { once: true });
+  }
+  const say = (t) => { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'en-US'; u.rate = 0.85; speechSynthesis.speak(u); } catch (e) {} };
+  function listenView() {
+    const m = UI.lmode || 'words', lp = (S.lp = S.lp || {}), ti = Math.min(UI.ltrack || 0, LU.tracks.length - 1), T = LU.tracks[ti];
+    let html = `<section class="banner jua-hero ls-hero"><div><p class="jua-eyebrow">🎧 ${esc(LU.book)} · Unit ${LU.unit} · ${esc(LU.pages)}</p><h1>${esc(LU.title)}</h1><p>순서대로 해요: <b>단어</b> → <b>한 문장씩 듣기</b> → <b>교과서 문제</b> → <b>빈칸 받아쓰기</b></p></div><span class="jua-crown">🎧</span></section>`;
+    html += `<div class="bar-row"><div class="seg">${Object.entries(LMODE).map(([k, [ic, nm]]) => `<button type="button" data-lmode="${k}" class="${m === k ? 'on' : ''}">${ic} ${nm.slice(2)}</button>`).join('')}</div></div>`;
+    const trackBar = `<div class="bar-row ls-tracks">${LU.tracks.map((t, i) => `<button class="chip ${i === ti ? 'on' : ''}" data-lt="${i}" type="button">${t.page}쪽 ${esc(t.title)}</button>`).join('')}<label class="ls-slow"><input type="checkbox" id="ls-slow" ${UI.lslow ? 'checked' : ''}> 천천히</label></div>`;
+    if (m === 'words') {
+      html += `<div class="card jua-sec"><p class="hint">카드를 누르면 소리가 나요 · 뜻을 가리고 떠올려 본 다음 「알아요」</p><div class="bar-row"><div class="seg"><button type="button" data-lhide="0" class="${!UI.lhide ? 'on' : ''}">뜻 보기</button><button type="button" data-lhide="1" class="${UI.lhide ? 'on' : ''}">뜻 가리기</button></div></div>
+        <div class="ls-words">${LU.words.map(([en, ko, em]) => { const k = `${LU.unit}:w:${en}`; return `<div class="ls-w ${lp[k] ? 'ok' : ''}"><button type="button" class="ls-say" data-say="${esc(en)}"><span class="ls-em">${em}</span><b>${esc(en)}</b> 🔊</button><span class="ls-ko ${UI.lhide && !lp[k] ? 'hid' : ''}" data-reveal>${esc(ko)}</span><button type="button" class="chip ls-know" data-know="${esc(en)}">${lp[k] ? '♡ 알아요' : '알아요'}</button></div>`; }).join('')}</div></div>
+        <div class="card jua-sec"><h3>📷 50쪽 그림 맞추기 정답</h3><p>${LU.pic.map(([a, w]) => `<b>${a}</b> ${esc(w)}`).join(' · ')}</p></div>`;
+    } else if (m === 'lines') {
+      html += trackBar + `<div class="card jua-sec"><div class="ls-head"><b>${esc(T.title)}</b> · ${esc(T.sub)} <button class="btn sm2 ls-play" id="ls-all" type="button">▶ 전체 듣기</button></div>
+        <div class="bar-row"><div class="seg"><button type="button" data-lshow="both" class="${(UI.lshow || 'both') === 'both' ? 'on' : ''}">영어+뜻</button><button type="button" data-lshow="en" class="${UI.lshow === 'en' ? 'on' : ''}">영어만</button><button type="button" data-lshow="none" class="${UI.lshow === 'none' ? 'on' : ''}">듣기만 (도전!)</button></div></div>
+        <p class="hint">▶ 를 눌러 한 문장씩 들어요. 따라 말해 보고 「들었어요」 · 가려진 글은 눌러서 확인</p>
+        <ol class="ls-lines">${T.lines.map((l, i) => { const k = lKey(T.id, 'l', i), sh = UI.lshow || 'both'; return `<li class="${lp[k] ? 'ok' : ''}"><button type="button" class="ls-play" data-lp="${i}">▶</button><div class="ls-tx">${l.who ? `<span class="ls-who">${esc(l.who)}</span>` : ''}<p class="ls-en ${sh === 'none' ? 'hid' : ''}" data-reveal>${esc(l.en)}</p><p class="ls-ko ${sh !== 'both' ? 'hid' : ''}" data-reveal>${esc(l.ko)}</p></div><button type="button" class="chip ls-heard" data-heard="${i}">${lp[k] ? '♡' : '들었어요'}</button></li>`; }).join('')}</ol></div>`;
+    } else if (m === 'quiz') {
+      html += trackBar + `<div class="card jua-sec"><div class="ls-head"><b>${T.page}쪽 ${esc(T.title)}</b> · Track ${T.track} <button class="btn sm2 ls-play" id="ls-all" type="button">▶ 전체 듣기</button></div><p class="hint">먼저 전체를 듣고 풀어요. 틀리면 근거 문장을 다시 들을 수 있어요.</p>
+        <ol class="ls-qs">${T.qs.map((q, i) => { const k = lKey(T.id, 'q', i), pk = (UI.lpick || {})[k], ok = lp[k];
+          return `<li><p class="ls-q">${q.part ? `<span class="ls-part">${esc(q.part)}</span> ` : ''}${esc(q.q)}</p><p class="hint">${esc(q.ko)}</p><div class="ls-ops">${q.ops.map((o) => `<button type="button" class="chip ${ok && o === q.ans ? 'right' : !ok && pk === o ? 'wrong' : ''}" data-lq="${i}" data-o="${esc(o)}" ${ok ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>
+          ${ok || pk ? `<div class="jua-fb ${ok ? 'ok' : 'no'}">${ok ? '✓ 정답! ' : '앗, 다시! 근거 문장을 들어 봐요 — '}${ok ? esc(q.why) : ''}<div class="ls-refs">${q.ref.map((r) => `<button type="button" class="chip ls-play" data-lp="${r}">▶ ${esc(T.lines[r].en.slice(0, 38))}${T.lines[r].en.length > 38 ? '…' : ''}</button>`).join('')}</div></div>` : ''}</li>`; }).join('')}</ol></div>`;
+    } else {
+      html += trackBar + `<div class="card jua-sec"><p class="hint">▶ 듣고 빈칸 낱말을 써요 (첫 글자 힌트) · Enter 로 확인</p><ol class="ls-lines">${T.lines.map((l, i) => { if (!l.key) return ''; const k = lKey(T.id, 'd', i), ok = lp[k];
+        const rx = new RegExp(`\\b${l.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`); const en = esc(l.en).replace(rx, ok ? `<b class="ls-got">${esc(l.key)}</b>` : `<input class="ls-in" data-di="${i}" size="${Math.max(4, l.key.length)}" placeholder="${esc(l.key[0])}…" autocomplete="off" spellcheck="false">`);
+        return `<li class="${ok ? 'ok' : ''}"><button type="button" class="ls-play" data-lp="${i}">▶</button><div class="ls-tx"><p class="ls-en">${en}</p><p class="ls-ko">${esc(l.ko)}</p></div></li>`; }).join('')}</ol></div>`;
+    }
+    main.innerHTML = html;
+    main.querySelectorAll('[data-lmode]').forEach((b) => (b.onclick = () => { UI.lmode = b.dataset.lmode; lStop(); render(); side(); }));
+    main.querySelectorAll('[data-lt]').forEach((b) => (b.onclick = () => { UI.ltrack = +b.dataset.lt; lStop(); render(); }));
+    main.querySelectorAll('[data-lhide]').forEach((b) => (b.onclick = () => { UI.lhide = +b.dataset.lhide; render(); }));
+    main.querySelectorAll('[data-lshow]').forEach((b) => (b.onclick = () => { UI.lshow = b.dataset.lshow; render(); }));
+    main.querySelectorAll('[data-reveal]').forEach((x) => (x.onclick = () => x.classList.remove('hid')));
+    main.querySelectorAll('[data-say]').forEach((b) => (b.onclick = () => say(b.dataset.say)));
+    main.querySelectorAll('[data-know]').forEach((b) => (b.onclick = () => { const k = `${LU.unit}:w:${b.dataset.know}`; if (lp[k]) delete lp[k]; else { lp[k] = Date.now(); ding(true); } save(); render(); side(); }));
+    main.querySelectorAll('[data-lp]').forEach((b) => (b.onclick = () => { const l = T.lines[+b.dataset.lp]; lPlay(T.url, l.s, l.e, b); }));
+    { const b = $('#ls-all'); if (b) b.onclick = () => { if (b.classList.contains('on')) { lStop(); return; } lPlay(T.url, T.lines[0].s, 0, b); }; }
+    { const c = $('#ls-slow'); if (c) c.onchange = () => { UI.lslow = c.checked ? 1 : 0; }; }
+    main.querySelectorAll('[data-heard]').forEach((b) => (b.onclick = () => { const k = lKey(T.id, 'l', +b.dataset.heard); if (lp[k]) delete lp[k]; else lp[k] = Date.now(); save(); b.closest('li').classList.toggle('ok', !!lp[k]); b.textContent = lp[k] ? '♡' : '들었어요'; side(); }));
+    main.querySelectorAll('[data-lq]').forEach((b) => (b.onclick = () => { const i = +b.dataset.lq, q = T.qs[i], k = lKey(T.id, 'q', i); UI.lpick = { ...(UI.lpick || {}), [k]: b.dataset.o };
+      if (b.dataset.o === q.ans) { lp[k] = Date.now(); save(); ding(true); side(); } else ding(false); const y = scrollY; render(); scrollTo(0, y); }));
+    main.querySelectorAll('.ls-in').forEach((inp) => (inp.onkeydown = (e) => { if (e.key !== 'Enter') return; const i = +inp.dataset.di, l = T.lines[i];
+      if (inp.value.trim().toLowerCase() === l.key.toLowerCase()) { lp[lKey(T.id, 'd', i)] = Date.now(); save(); ding(true); side(); const y = scrollY; render(); scrollTo(0, y); const nx = main.querySelector('.ls-in'); if (nx) nx.focus({ preventScroll: true }); }
+      else { ding(false); inp.classList.remove('wr-shake'); void inp.offsetWidth; inp.classList.add('wr-shake'); inp.placeholder = l.key.slice(0, Math.min(l.key.length - 1, (inp.dataset.h = (+inp.dataset.h || 1) + 1))) + '…'; inp.value = ''; } }));
+  }
+
   // ───────── ✏️ Writing ─────────
   // 주아는 아직 「주어 먼저, 동사 다음」 단계 — 문장은 색 블록(주어 파랑·동사 빨강·연결어 보라)으로 맞춰 보고, 마지막에 100단어 쓰기
   const WRS = DATA.writing || [];
@@ -501,6 +565,7 @@
     if (S.step === 'words' || (S.step === 'read' && UI.rmode === 'words')) { wordsView(); return; }
     if (S.step === 'read') { readView(); return; }
     if (S.step === 'write' && WRS.length) { writeView(); return; }
+    if (S.step === 'listen' && LIS.length) { listenView(); return; }
     const u = UNITS.find((x) => x.no === S.unit);
     if (!u) { main.innerHTML = '<div class="empty">아직 문법 노트가 없어요.</div>'; return; }
     if (S.step === 'wrong') {
@@ -587,6 +652,7 @@
     S.rd = S.rd || {}; for (const k in sd.rd || {}) if (!S.rd[k] || (sd.rd[k].at || 0) > (S.rd[k].at || 0)) S.rd[k] = sd.rd[k];
     S.wrt = S.wrt || {}; for (const k in sd.wrt || {}) if (!S.wrt[k] || (sd.wrt[k].at || 0) > (S.wrt[k].at || 0)) S.wrt[k] = sd.wrt[k];
     S.wp = { ...(sd.wp || {}), ...(S.wp || {}) };
+    S.lp = { ...(sd.lp || {}), ...(S.lp || {}) };
     S.wd = S.wd || {}; for (const k in sd.wd || {}) if (!S.wd[k] || (sd.wd[k].at || 0) > (S.wd[k].at || 0)) S.wd[k] = sd.wd[k];
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
     clean();
