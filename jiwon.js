@@ -45,9 +45,14 @@
     const left = HW ? (HW.days.find((d) => d.date === todayKey()) || { tasks: [] }).tasks.filter((t) => !taskOk(t)).length : 0;
     const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
     $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '일요일 수업', left) : ''}${MOCKS.length ? nb('mock', '📝', '모의고사', mkLeft() || '') : ''}${nb('sum', '📄', '개념 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
-      `<div class="jua-units">${UNITS.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${!i || a[i - 1].chapter !== u.chapter ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">${UL(u)} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : SM(u, st)}</i><span class="jua-nt">${SN(u, st)}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
+      // 학교 내신(한산중)과 천일문 수업을 두 묶음으로 — 섞이면 헷갈림 (선생님 2026-10-24)
+      ((sch) => sch.length ? `<div class="jua-book"><div class="jua-book-h">🏫 학교 내신 · ${esc(sch[0].school)}</div>${unitsNav(sch, false)}</div>` : '')(UNITS.filter((u) => u.school)) +
+      `<div class="jua-book"><div class="jua-book-h">📘 천일문 기본 · 일요일 수업</div>${unitsNav(UNITS.filter((u) => !u.school), true)}</div>`;
     $('#who-name').textContent = S.who || '지원';
     $('#who-edit').textContent = '로그아웃';
+  }
+  function unitsNav(list, chs) {
+    return `<div class="jua-units">${list.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${chs && (!i || a[i - 1].chapter !== u.chapter) ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">${UL(u)} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : SM(u, st)}</i><span class="jua-nt">${SN(u, st)}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0) + mkWrong().length;
   $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'sum', 'mock'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (S.step === 'mock') UI.mfrom = null; save(true); goFx(b); });
@@ -158,9 +163,9 @@
   function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   // ── 한 장 요약: 과별 설명 표만 모아서
   function sumView() {
-    const chs = [...new Set(UNITS.map((u) => u.chapter))];
+    const chs = [...new Set(UNITS.filter((u) => !u.school).map((u) => u.chapter))]; // 학교 내신 정리는 맨 아래 따로
     main.innerHTML = `<section class="banner jua-hero"><div><p class="jua-eyebrow">📄 개념 한 장</p><h1>${chs.map((c) => `CHAPTER ${c}`).join(' · ')} 개념 요약</h1><p>유닛별 표만 쓱 보고 문제로 가요</p></div><span class="jua-crown">🎯</span></section>` +
-      UNITS.map((u) => `<div class="jua-lesson">${u.lessons[2] || ''}</div>`).join('') +
+      UNITS.filter((u) => !u.school).map((u) => `<div class="jua-lesson">${u.lessons[2] || ''}</div>`).join('') + UNITS.filter((u) => u.school).map((u) => `<div class="jw-ch">🏫 학교 내신 · ${esc(u.school)}</div><div class="jua-lesson">${u.lessons[2] || ''}</div>`).join('') +
       `<div class="sc-foot"><span></span><button class="btn ok" data-sumok type="button">${S.seen.sum ? '봤어요 ✓' : '다 봤어요 ✓'}</button></div>`;
     main.querySelector('[data-sumok]').onclick = (e) => { S.seen.sum = Date.now(); save(); hearts(e.target, 18); cheer('📄 개념 요약 완료!'); };
   }
@@ -350,7 +355,7 @@
       bind(); mkBind(); return;
     }
     const st = stat(u, S.step), pct = st.n ? Math.round(st.ok / st.n * 100) : 0;
-    let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">CHAPTER ${u.chapter} · ${UL(u)} · ${esc(SN(u, S.step))}</p><h1>${esc(u.title)}</h1>
+    let html = `<section class="banner jua-hero"><div><p class="jua-eyebrow">${u.school ? `🏫 학교 내신 · ${esc(u.school)}` : `📘 천일문 · CHAPTER ${u.chapter}`} · ${UL(u)} · ${esc(SN(u, S.step))}</p><h1>${esc(u.title)}</h1>
       <div class="jua-prog"><span style="width:${pct}%"></span></div><p>${st.ok} / ${st.n} 맞힘 ${pct === 100 ? '· 이 단계 클리어! 🎯' : ''}</p></div><span class="jua-crown">${SM(u, S.step)}</span></section>`;
     html += S.step === 2 ? `<div class="jua-lesson">${u.lessons[2] || ''}</div>` : `<details class="jua-lesson jw-fold"><summary>UNIT ${u.no} 개념 다시 보기</summary>${u.lessons[2] || ''}</details>`;
     let sec = null, list = [];
