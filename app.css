@@ -1964,7 +1964,8 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .mock-banner { display: grid; gap: 2px; padding: 16px 20px; text-align: left; color: #fff; background: linear-gradient(120deg, #3b5bdb, #5c7cfa); border: 0; border-radius: 20px; box-shadow: 0 10px 24px -14px rgba(59, 91, 219, .8); cursor: pointer; font: inherit; }
 .mock-banner + .mock-banner { background: linear-gradient(120deg, #5f3dc4, #845ef7); box-shadow: 0 10px 24px -14px rgba(95, 61, 196, .8); }
 .mock-banner b { font-size: 20px; font-weight: 800; }
-.mock-banner .perf-go { justify-self: start; margin-top: 6px; }
+.mock-banner .perf-go { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 8px; color: #3b5bdb; }
+.mock-banner + .mock-banner .perf-go { color: #5f3dc4; }
 @media (max-width: 640px) { .mock-row { grid-template-columns: 1fr; gap: 10px; } }
 .mock-omr { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px; margin: 0 0 14px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
 .mock-omr a { display: grid; place-items: center; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--sub); background: var(--bg); text-decoration: none; }
