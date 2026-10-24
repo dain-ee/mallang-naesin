@@ -2054,6 +2054,44 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 @media (max-width: 560px) { .ls-words { grid-template-columns: 1fr; } .ls-en { font-size: 16px; } }
 .ls-miss { color: #e03131; text-decoration: underline wavy; }
 
+/* 학교 선생님 필기 · 꼭 외울 표 (2026-10-24) */
+.notes-banner { background: linear-gradient(120deg, #e8590c, #fd7e14); box-shadow: 0 10px 24px -14px rgba(232, 89, 12, .8); }
+.mock-banner.notes-banner + .mock-banner.notes-banner { background: linear-gradient(120deg, #c2255c, #f06595); box-shadow: 0 10px 24px -14px rgba(194, 37, 92, .8); }
+.notes-banner .perf-go { color: #e8590c; }
+.notes-banner + .notes-banner .perf-go { color: #c2255c; }
+.gt-card { padding: 20px 22px; margin: 0 0 16px; border: 2px solid #ffd8a8; }
+.gt-eyebrow { font-size: 12px; font-weight: 800; color: #e8590c; }
+.gt-h { margin: 4px 0 2px; font-size: 19px; font-weight: 800; color: var(--ink); }
+.gt-why { margin: 0 0 14px; font-size: 13px; color: var(--sub); line-height: 1.6; }
+.gt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gt-g { padding: 12px 14px; border-radius: 14px; background: var(--line-soft); border: 1px solid var(--line); }
+.gt-ing { background: #fff4e6; border-color: #ffd8a8; } .gt-to { background: #e7f5ff; border-color: #a5d8ff; } .gt-both { background: #ebfbee; border-color: #b2f2bb; } .gt-diff { background: #f8f0fc; border-color: #eebefa; }
+.gt-t { font-size: 15px; font-weight: 800; color: #1f2733; margin-bottom: 8px; }
+.gt-vs { display: flex; flex-wrap: wrap; gap: 5px; }
+.gt-v { padding: 4px 9px; font-size: 13px; color: #49505a; background: rgba(255, 255, 255, .8); border-radius: 999px; }
+.gt-v b { color: #1f2733; }
+.gt-tip { margin-top: 8px; font-size: 12px; color: #5c636e; line-height: 1.55; }
+.gt-ex { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #1f2733; }
+.gt-ex u { text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: #e8590c; }
+.gt-src { font-size: 11px; color: #868e96; }
+.gt-card .actions { margin-top: 14px; }
+.gt-q { display: grid; gap: 12px; justify-items: center; text-align: center; padding: 6px 0; }
+.gt-qn { font-size: 12px; font-weight: 700; color: var(--sub); }
+.gt-verb { font-size: 30px; font-weight: 800; color: var(--ink); display: grid; } .gt-verb span { font-size: 14px; font-weight: 600; color: var(--sub); }
+.gt-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.gt-last { font-size: 14px; font-weight: 600; } .gt-last.ok { color: #2b8a3e; } .gt-last.no { color: #e03131; }
+.notes-seg { margin: 0 0 14px; }
+.notes-pg { padding: 16px 20px; margin: 0 0 12px; }
+.notes-pg.star { border-left: 4px solid #fd7e14; }
+.notes-p { font-size: 14px; font-weight: 800; color: #e8590c; margin-bottom: 8px; }
+.notes-i { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 14px; line-height: 1.55; }
+.notes-p + .notes-i { border-top: 0; }
+.notes-i .en { font-weight: 700; color: var(--ink); } .notes-i .ko { color: var(--mid); }
+.notes-i.star { background: #fff9db; margin: 0 -10px; padding: 8px 10px; border-radius: 8px; }
+@media (max-width: 640px) { .gt-grid { grid-template-columns: 1fr; } .notes-i { grid-template-columns: 1fr; gap: 2px; } }
+@media (prefers-color-scheme: dark) {:root:not([data-theme="light"]) .gt-g, :root:not([data-theme="light"]) .gt-ing, :root:not([data-theme="light"]) .gt-to, :root:not([data-theme="light"]) .gt-both, :root:not([data-theme="light"]) .gt-diff { background: var(--card); border-color: var(--line); }:root:not([data-theme="light"]) .gt-t, :root:not([data-theme="light"]) .gt-v b, :root:not([data-theme="light"]) .gt-ex { color: var(--ink); }:root:not([data-theme="light"]) .gt-v { background: var(--line-soft); color: var(--mid); }:root:not([data-theme="light"]) .gt-tip { color: var(--sub); }:root:not([data-theme="light"]) .notes-i.star { background: rgba(253, 126, 20, .14); }
+}
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
@@ -2095,6 +2133,8 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 :root[data-theme="dark"][data-kid="jua"]:not([data-theme="light"]) { --bg: #1d1218; --card: #2a1922; --line: #4a2a3a; --line-soft: #3a2230; --accent: #ff8fc0; --accent-2: #ff6fae; --accent-soft: #3d2030; --ok: #ff8fc0; } 
 :root[data-theme="dark"][data-kid="jua"][data-sub="jiwon"]:not([data-theme="light"]) { --bg: #10141f; --card: #181e2c; --line: #2a3349; --line-soft: #1f2638; --accent: #8ea2ff; --accent-2: #6f86f5; --accent-soft: #222c47; --ok: #4fc08d; } 
 :root[data-theme="dark"][data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
+
+:root[data-theme="dark"] .gt-g, :root[data-theme="dark"] .gt-ing, :root[data-theme="dark"] .gt-to, :root[data-theme="dark"] .gt-both, :root[data-theme="dark"] .gt-diff { background: var(--card); border-color: var(--line); }:root[data-theme="dark"] .gt-t, :root[data-theme="dark"] .gt-v b, :root[data-theme="dark"] .gt-ex { color: var(--ink); }:root[data-theme="dark"] .gt-v { background: var(--line-soft); color: var(--mid); }:root[data-theme="dark"] .gt-tip { color: var(--sub); }:root[data-theme="dark"] .notes-i.star { background: rgba(253, 126, 20, .14); }
 
 :root:not([data-theme="light"]) { } @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; } } :root[data-theme="dark"] { color-scheme: dark; }
 

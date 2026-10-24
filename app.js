@@ -16,6 +16,7 @@
   const subjOfUnit = (no) => (((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist');
   let HIST = null, HUNITS = [], HEXAMS = []; // 지금 고른 과목(역사 또는 과학)의 자료
   function useSubj() { const d = SUBJ[S.subj] || SUBJ.hist; HIST = d; HUNITS = d ? d.units : []; HEXAMS = d ? d.exams || [] : []; }
+  const NOTES = DATA.notes || null; // 학교 선생님 필기 모음 + 동명사/to부정사 표 (2026-10-24)
   const MOCK = DATA.mock || null; // 실전 시험 — 학교처럼 25문제 다 풀고 제출해야 채점 (선생님 2026-10-24)
   const PERF = DATA.perf || null; // 수행평가 원고 — 홈·숙제 맨 위 배너
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
@@ -289,10 +290,11 @@
     } else {
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
       if (S.tab === 'mock' && !(MOCK && UI.mock)) S.tab = 'home';
+      if (S.tab === 'notes' && !NOTES) S.tab = 'home';
       if (S.tab === 'perf' && !PERF) S.tab = 'home'; // 수행평가 끝(2026-10-17) — 원고는 content/perf.done.json 에 보관
       const L = lesson();
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
-      ({ hw: hwView, perf, mock: mockView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
+      ({ hw: hwView, perf, mock: mockView, notes: notesView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
     hwBar();
     { const b = main.querySelector('.hwbar-tabs'); if (b) slideInk(b, 'hwbar', 1); main.querySelectorAll('.seg').forEach((s, i) => slideInk(s, `${S.tab}:${s.dataset.seg || i}`)); }
@@ -414,7 +416,7 @@
         <span class="route-prog"><span class="bar"><span style="width:${pct(a, b)}%"></span></span><span class="route-m">${a} / ${b}${unit}</span></span>
         <span class="route-go" aria-hidden="true">›</span>
       </button>`;
-    main.innerHTML = perfBanner() + `
+    main.innerHTML = perfBanner() + notesBanner() + gtableCard() + `
       <nav class="lesson-tabs" aria-label="단원">${LESSONS.map((l) => `<button class="ltab ${l.no === L.no ? 'on' : ''}" data-l="${l.no}" type="button"><b>${l.no}과</b><span>${esc(l.title)}</span></button>`).join('')}</nav>
       <section class="banner"><div><h1>Lesson ${L.no}. ${esc(L.title)}</h1><p>본문 「${esc(L.readingTitle)}」</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
@@ -429,6 +431,45 @@
     main.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => go(b.dataset.go)));
     main.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => setLesson(+b.dataset.l)));
     bindPerfBanner();
+    bindGtable();
+  }
+
+  // ───────── 학교 선생님 필기 · 꼭 외울 표 ─────────
+  // 선생님 2026-10-24: «enjoy 동명사 to부정사 목적어로 취하는 표 — 홈에 띄워» · «학습지 전체에서 선생님 필기만 따로 모아»
+  //  표 퀴즈는 기록에 남기지 않음 (UI 만) — 다시 하면 새로 섞음
+  const GT_K = { ing: '동명사만', to: 'to부정사만', both: '둘 다' };
+  function gtQuiz() {
+    const pool = NOTES.table.groups.filter((g) => GT_K[g.k]).flatMap((g) => g.verbs.map(([en, ko]) => ({ en, ko, k: g.k })));
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    return { pool, i: 0, ok: 0, last: null };
+  }
+  function gtableCard() {
+    if (!NOTES || !NOTES.table || isHist()) return '';
+    const T = NOTES.table, q = UI.gtq;
+    let body;
+    if (q) {
+      const cur = q.pool[q.i], done = q.i >= q.pool.length;
+      body = done ? `<div class="gt-q"><b>${q.ok} / ${q.pool.length} 맞힘</b><div class="actions"><button class="btn ok" data-gtq="again" type="button">다시 섞어서</button><button class="btn ghost" data-gtq="off" type="button">표 보기</button></div></div>`
+        : `<div class="gt-q"><div class="gt-qn">${q.i + 1} / ${q.pool.length} · 맞힘 ${q.ok}</div><div class="gt-verb">${esc(cur.en)}<span>${esc(cur.ko)}</span></div><div class="gt-btns">${Object.entries(GT_K).map(([k, t]) => `<button class="btn" data-gtk="${k}" type="button">${t}</button>`).join('')}</div>${q.last ? `<div class="gt-last ${q.last.ok ? 'ok' : 'no'}">${q.last.ok ? '정답!' : '틀렸어요'} — ${esc(q.last.en)} 는 <b>${GT_K[q.last.k]}</b></div>` : ''}<button class="link" data-gtq="off" type="button">그만하고 표 보기</button></div>`;
+    } else body = `<div class="gt-grid">${T.groups.map((g) => `<div class="gt-g gt-${g.k}"><div class="gt-t">${esc(g.t)}</div><div class="gt-vs">${g.verbs.map(([en, ko]) => `<span class="gt-v"><b>${esc(en)}</b> ${esc(ko)}</span>`).join('')}</div>${g.tip ? `<div class="gt-tip">💡 ${esc(g.tip)}</div>` : ''}<div class="gt-ex">${g.ex.map(([e, s]) => `<div>${rich(e)}${s ? ` <span class="gt-src">${esc(s)}</span>` : ''}</div>`).join('')}</div></div>`).join('')}</div>
+      <div class="actions"><button class="btn ok" data-gtq="on" type="button">외우기 퀴즈 — 동사 보고 맞히기</button></div>`;
+    return `<section class="card gt-card"><div class="gt-eyebrow">📋 꼭 외울 표 · 6과 단원평가 10번</div><h2 class="gt-h">${esc(T.title)}</h2><p class="gt-why">${esc(T.why)}</p>${body}</section>`;
+  }
+  function bindGtable() {
+    const again = () => { const y = scrollY; render(); scrollTo(0, y); };
+    main.querySelectorAll('[data-gtq]').forEach((b) => (b.onclick = () => { UI.gtq = b.dataset.gtq === 'off' ? null : gtQuiz(); again(); }));
+    main.querySelectorAll('[data-gtk]').forEach((b) => (b.onclick = () => { const q = UI.gtq, cur = q.pool[q.i], ok = b.dataset.gtk === cur.k; if (ok) q.ok++; q.last = { ...cur, ok }; q.i++; again(); }));
+    main.querySelectorAll('[data-notes]').forEach((b) => (b.onclick = () => { UI.notesL = +b.dataset.notes || UI.notesL || 6; go('notes'); window.scrollTo(0, 0); }));
+  }
+  function notesBanner() {
+    if (!NOTES || isHist()) return '';
+    return `<div class="mock-row">${NOTES.lessons.map((n) => `<button class="mock-banner notes-banner" data-notes="${n.lesson}" type="button"><span class="perf-eyebrow">✍️ 학교 선생님 필기 · 프린트 손글씨만 모음</span><b>${n.lesson}과 선생님 필기</b><span class="perf-sub">${n.pages.length}묶음 · ${n.pages.reduce((a, p) => a + p.items.length, 0)}개 · ★ 시험 포인트</span><span class="perf-go">보러 가기 ›</span></button>`).join('')}</div>`;
+  }
+  function notesView() {
+    const n = NOTES.lessons.find((x) => x.lesson === UI.notesL) || NOTES.lessons[NOTES.lessons.length - 1];
+    main.innerHTML = head(esc(n.title), esc(n.sub)) + `<div class="seg notes-seg">${NOTES.lessons.map((x) => `<button class="${x.lesson === n.lesson ? 'on' : ''}" data-notes="${x.lesson}" type="button">${x.lesson}과</button>`).join('')}</div>`
+      + n.pages.map((pg) => `<section class="card notes-pg ${pg.star ? 'star' : ''}"><div class="notes-p">${pg.star ? '★ ' : ''}${esc(pg.p)}</div>${pg.items.map(([en, ko]) => `<div class="notes-i ${/★/.test(en + ko) ? 'star' : ''}"><div class="en">${rich(en)}</div><div class="ko">${rich(ko)}</div></div>`).join('')}</section>`).join('');
+    bindGtable();
   }
 
   // ───────── 단어 ─────────
