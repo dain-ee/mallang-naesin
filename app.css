@@ -383,7 +383,24 @@ kbd { font: inherit; font-size: 11px; opacity: 0.75; border: 1px solid currentCo
   text-align: left;
 }
 .brand:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: var(--line); }
-.brand[aria-expanded="true"] { background: var(--card); border-color: var(--line); box-shadow: var(--shadow); }
+.brand { margin-bottom: 6px; }
+
+/* 과 고르기 — 로고 아래 따로 */
+.pick {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font: inherit; color: inherit;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.pick:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.pick[aria-expanded="true"] { border-color: var(--line); box-shadow: var(--shadow); }
+.pick .brand-sub { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 600; color: var(--ink); }
 
 .brand-text { flex: 1; min-width: 0; display: block; }
 .brand-name {
@@ -401,7 +418,7 @@ kbd { font: inherit; font-size: 11px; opacity: 0.75; border: 1px solid currentCo
   transform: rotate(45deg) translate(-2px, -2px);
   transition: transform .18s ease;
 }
-.brand[aria-expanded="true"] .brand-chev { transform: rotate(-135deg) translate(-2px, -2px); }
+.pick[aria-expanded="true"] .brand-chev { transform: rotate(-135deg) translate(-2px, -2px); }
 
 .menu {
   position: absolute; left: 0; right: 0; top: 100%;
@@ -1300,7 +1317,6 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
   .nav { flex-direction: column !important; flex-wrap: nowrap; }
   .side-foot { margin-top: auto; }
   .brand-sub { white-space: normal; }
-  .brand-chev { display: none; }
 }
 
 /* ── 반응 애니메이션 ── */
@@ -1607,6 +1623,8 @@ textarea.wfull { margin-top: 6px; font-size: 15px; min-height: 40px; resize: non
 @keyframes jua-heart { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.1); opacity: 0; } }
 .jua-cheer { background: linear-gradient(135deg, #ff8fc0, #c084fc) !important; }
 :root[data-kid="jua"] .brand-chev { display: none; }
+:root[data-kid="jua"] #lesson-pick { pointer-events: none; padding-top: 0; background: transparent; border-color: transparent; } /* 주아·지원: 과 고르기 없음 — 교재 이름만 */
+:root[data-kid="jua"] #lesson-pick .brand-sub { font-weight: 400; color: var(--sub); }
 .jua-terms { display: flex; flex-direction: column; }
 .jua-term { display: grid; grid-template-columns: minmax(180px, 38%) 1fr; gap: 2px 14px; padding: 10px 2px; border-bottom: 1px dashed var(--line); }
 .jua-term:last-child { border-bottom: 0; }

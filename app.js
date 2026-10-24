@@ -234,7 +234,8 @@
     if (HW && !hs) { $('#nav-hw').hidden = false; const left = hwToday() ? hwToday().tasks.filter((t) => !hwTaskOk(t)).length : 0; const ht = $('#hw-tally'); ht.hidden = !left; ht.textContent = left; }
   }
   $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) { UI.hwT = null; delete document.documentElement.dataset.navopen; go(b.dataset.tab); } });
-  const brand = $('#brand'), menu = $('#lesson-menu');
+  const brand = $('#lesson-pick'), menu = $('#lesson-menu'); // 과 고르기 — 로고(#brand)와 따로
+  $('#brand').addEventListener('click', () => { UI.hwT = null; delete document.documentElement.dataset.navopen; menu.hidden = true; brand.setAttribute('aria-expanded', false); go(isHist() ? 'hhome' : 'home'); }); // 로고 = 홈
   brand.addEventListener('click', () => {
     const open = menu.hidden; menu.hidden = !open; brand.setAttribute('aria-expanded', open);
     if (open && isHist()) menu.innerHTML = HUNITS.map((u) => `<button class="menu-item ${u.no === S.hunit ? 'on' : ''}" data-u="${u.no}" type="button"><span class="dot" style="--dot:var(--accent)"></span><span class="t">${esc(u.code)} ${esc(u.title)}</span></button>`).join('');
