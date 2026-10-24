@@ -22,7 +22,7 @@
   const HERE = (() => { try { return JSON.parse(sessionStorage.getItem('jua:here') || 'null'); } catch (e) { return null; } })();
   if (HERE && HERE.step != null) { S.step = HERE.step; if (HERE.unit) S.unit = HERE.unit; }
   else if (HW && HW.days.some((d) => d.date >= todayKey())) S.step = 'hw'; // 숙제가 있으면 숙제부터
-  if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum', 'words', 'read'].includes(S.step)) S.step = 2;
+  if (![2, 3, 4, 'wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write'].includes(S.step)) S.step = 2;
   let pushT = null;
   const save = (local) => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} if (!local) schedule(); };
 
@@ -51,12 +51,14 @@
       <div class="jua-quick jua-book-x">${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}${nb('sum', '📄', '한 장 요약')}${nb('terms', '🚌', '셔틀 카드')}</div></div>`;
     const read = READS.length ? `<div class="jua-book"><div class="jua-book-h">📘 Benchmark Reading 5.3</div>${readNav()}</div>` : '';
     const etc = (DATA.words || {}).words ? `<div class="jua-book"><div class="jua-book-h">🔤 지난 단어 시험</div><div class="jua-quick jua-book-x">${nb('words', '🔤', 'Day 18·19 단어', wLeft() || '')}</div></div>` : '';
-    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}</div>` + read + gram + etc;
+    // ✏️ Writing — 주제마다 한 칸 (2026-10-24 선생님: 앞으로 writing 계속)
+    const wri = WRS.length ? `<div class="jua-book"><div class="jua-book-h">✏️ Writing</div><div class="jua-quick jua-book-x">${WRS.slice().reverse().map((w) => { const n = wCount((S.wrt || {})[w.id]); return `<button class="nav-item ${S.step === 'write' && S.wid === w.id ? 'is-on' : ''}" data-st="write" data-w="${w.id}" type="button"><i class="ni">✏️</i><span class="jua-nt">${esc(w.title)}</span><span class="tally ${n >= w.goal ? 'full' : ''}">${n}/${w.goal}</span></button>`; }).join('')}</div></div>` : '';
+    $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '숙제', left) : ''}</div>` + wri + read + gram + etc;
     $('#who-name').textContent = S.who || '주아';
     $('#who-edit').textContent = '로그아웃';
   }
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0);
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words', 'read'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (b.dataset.rm) { UI.rmode = b.dataset.rm; RQ.q = null; } save(true); goFx(b); });
+  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'terms', 'sum', 'words', 'read', 'write'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (b.dataset.w) S.wid = b.dataset.w; if (b.dataset.rm) { UI.rmode = b.dataset.rm; RQ.q = null; } save(true); goFx(b); });
   // 메뉴 칸을 누르면: 칸이 톡 눌리고 → 위에 분홍 로딩 줄 → 내용이 살짝 떠오르며 나타나고, 폰에서는 내용 있는 곳으로 내려감
   function goFx(btn, top) {
     const key = `${S.unit}:${S.step}`;
@@ -298,6 +300,64 @@
   // 고르기 선택지는 문장마다 순서를 고정 (다시 열어도 같은 자리)
   const seeded = (arr, seed) => { let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0; const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { h = (h * 1103515245 + 12345) >>> 0; const j = h % (i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const chunkHtml = (x, hideKo) => `<div class="rd-chunks ${hideKo ? 'hide-ko' : ''}">${x.chunks.map(([en, ko], i) => `<span class="rd-ch" data-ch><b>${esc(en)}</b><small>${esc(ko)}</small></span>${i < x.chunks.length - 1 ? '<i class="rd-sl">/</i>' : ''}`).join('')}</div>`;
+  // ───────── ✏️ Writing ─────────
+  // 주아는 아직 「주어 먼저, 동사 다음」 단계 — 문장은 색 블록(주어 파랑·동사 빨강·연결어 보라)으로 맞춰 보고, 마지막에 100단어 쓰기
+  const WRS = DATA.writing || [];
+  const wCount = (r) => ((r && r.text) || '').trim().split(/\s+/).filter((x) => /[A-Za-z]/.test(x)).length;
+  const WTAB = { idea: ['💡', '생각 정리'], build: ['🧩', '문장 만들기'], trans: ['🔗', '연결어'], write: ['✏️', '100단어 쓰기'] };
+  function writeView() {
+    const w = WRS.find((x) => x.id === S.wid) || WRS[WRS.length - 1]; S.wid = w.id;
+    const t = UI.wtab || 'idea', r = (S.wrt = S.wrt || {})[w.id] || { text: '' }, wp = (S.wp = S.wp || {});
+    const built = w.sents.filter((_, i) => wp[`${w.id}:b${i}`]).length, tdone = w.tq.filter((_, i) => wp[`${w.id}:t${i}`]).length, n = wCount(r);
+    const tally = { idea: '', build: `${built}/${w.sents.length}`, trans: `${tdone}/${w.tq.length}`, write: `${n}/${w.goal}` };
+    let html = `<section class="banner jua-hero wr-hero"><div><p class="jua-eyebrow">✏️ Writing · ${esc(w.date || '')} · ${w.goal}단어 이상</p><h1>${esc(w.title)}</h1><p>${esc(w.prompt)}<br><span class="rd-bigko">${esc(w.promptKo)}</span></p></div><span class="jua-crown">🪄</span></section>`;
+    html += `<div class="bar-row"><div class="seg">${Object.entries(WTAB).map(([k, [ic, nm]]) => `<button type="button" data-wtab="${k}" class="${t === k ? 'on' : ''}">${ic} ${nm}${tally[k] ? ` <small>${tally[k]}</small>` : ''}</button>`).join('')}</div></div>`;
+    const chunk = (p) => `<span class="wr-c ${p[1]}">${esc(p[0])}</span>`;
+    const legend = `<p class="wr-legend"><span class="wr-c s">주어</span> 누가 · <span class="wr-c v">동사</span> 한다/할 수 있다 · <span class="wr-c t">연결어</span> · <span class="wr-c x">나머지</span> — 영어는 <b>주어 → 동사</b> 순서!</p>`;
+    if (t === 'idea') {
+      html += `<div class="card jua-sec"><h3>💡 내 생각 (선생님이랑 정리한 것)</h3>${w.ideas.map((g) => `<p class="wr-h">${esc(g.h)}</p><ul>${g.pts.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`).join('')}</div>`;
+      html += `<div class="card jua-sec"><h3>🦴 글 뼈대 — 4덩어리</h3><ol class="wr-out">${w.outline.map(([a, b]) => `<li><b>${esc(a)}</b> ${esc(b)}</li>`).join('')}</ol><p class="hint">한 덩어리에 3~4문장씩 쓰면 100단어가 넘어요.</p></div>`;
+      html += `<div class="card jua-sec"><h3>🔤 꼭 쓸 단어</h3><div class="wr-words">${w.words.map(([e, k]) => `<span><b>${esc(e)}</b> ${esc(k)}</span>`).join('')}</div></div>`;
+      html += `<div class="card jua-sec"><h3>🔗 연결어 — 글의 길잡이</h3><div class="wr-words">${w.trans.map((x) => `<span class="wr-c t">${esc(x)}</span>`).join('')}</div></div>`;
+    } else if (t === 'build') {
+      // 블록을 순서대로 누르면 문장이 된다. 틀린 블록은 흔들리고 다시 고르기
+      const i = Math.min(UI.wbi || 0, w.sents.length - 1), st = w.sents[i], key = `${w.id}:b${i}`;
+      const order = UI.wbo && UI.wbo.i === i ? UI.wbo : (UI.wbo = { i, got: wp[key] ? st.parts.map((_, k) => k) : [], mix: shuf(st.parts.map((_, k) => k), i) });
+      const doneNow = order.got.length === st.parts.length;
+      html += legend + `<div class="card jua-sec wr-build"><div class="wr-nav">${w.sents.map((_, k) => `<button type="button" class="wr-dot ${k === i ? 'on' : ''} ${wp[`${w.id}:b${k}`] ? 'ok' : ''}" data-wbi="${k}">${k + 1}</button>`).join('')}</div>
+        <p class="wr-ko">${esc(st.ko)}</p><div class="wr-line">${order.got.map((k) => chunk(st.parts[k])).join(' ') || '<span class="hint">아래 블록을 순서대로 눌러요 — 주어부터!</span>'}</div>
+        <div class="wr-pool">${order.mix.map((k) => order.got.includes(k) ? '' : `<button type="button" class="wr-c ${st.parts[k][1]} wr-pick" data-wk="${k}">${esc(st.parts[k][0])}</button>`).join('')}</div>
+        ${doneNow ? `<div class="jua-fb ok">✓ 완성! ${i + 1 < w.sents.length ? '<button class="btn primary" id="wb-next" type="button">다음 문장 →</button>' : '🎉 모든 문장을 만들었어요 — 이제 「100단어 쓰기」!'}</div>` : `<div class="actions"><button class="btn ghost" id="wb-reset" type="button">처음부터</button></div>`}</div>
+        <div class="card jua-sec"><h3>지금까지 만든 글</h3><p class="wr-model">${w.sents.map((x, k) => wp[`${w.id}:b${k}`] ? x.parts.map(chunk).join(' ') : '').filter(Boolean).join(' ') || '<span class="hint">문장을 만들면 여기 차곡차곡 쌓여요.</span>'}</p></div>`;
+    } else if (t === 'trans') {
+      html += `<div class="card jua-sec"><ol class="wr-tq">${w.tq.map((q, i) => { const k = `${w.id}:t${i}`, pk = (UI.wtp || {})[i], ok = wp[k];
+        return `<li><p class="hint">${esc(q.q)} · ${esc(q.ko)}</p><p class="wr-sent">${esc(q.sent).replace('______', `<b class="wr-blank">${ok ? esc(q.ans) : '______'}</b>`)}</p><div class="wr-ops">${q.ops.map((o) => `<button type="button" class="chip ${ok && o === q.ans ? 'right' : !ok && pk === o ? 'wrong' : ''}" data-wt="${i}" data-o="${esc(o)}" ${ok ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div></li>`; }).join('')}</ol></div>`;
+    } else {
+      const used = w.trans.filter((x) => new RegExp(`(^|[^A-Za-z])${x.replace(/[,.]/g, '').replace(/ /g, '\\s+')}\\b`, 'i').test(r.text || ''));
+      html += `<div class="card jua-sec wr-write"><div class="wr-meter"><b id="wr-n">${n}</b> / ${w.goal} 단어<span class="wr-bar"><i id="wr-bar" style="width:${Math.min(100, n / w.goal * 100)}%"></i></span></div>
+        <p class="wr-check" id="wr-check">${w.trans.map((x) => `<span class="wr-c ${used.includes(x) ? 't' : 'x off'}">${used.includes(x) ? '✓ ' : ''}${esc(x)}</span>`).join('')}</p>
+        <textarea id="wr-text" rows="14" spellcheck="false" placeholder="If a wizard gives me two magical items, I want ...">${esc(r.text || '')}</textarea>
+        <p class="hint">자동 저장돼요 · 선생님도 이 글을 볼 수 있어요</p>
+        <details class="wr-help"><summary>🆘 막히면 — 문장 틀 보기</summary><ul>${w.frames.map((f) => `<li>${f.p ? `<b>${esc(f.p)}</b> ` : ''}${esc(f.f)}</li>`).join('')}</ul></details>
+        <details class="wr-help"><summary>👀 예시 글 보기 (다 쓴 다음에!)</summary><p class="wr-model">${w.sents.map((x) => x.parts.map(chunk).join(' ')).join(' ')}</p></details></div>`;
+    }
+    main.innerHTML = html;
+    main.querySelectorAll('[data-wtab]').forEach((b) => (b.onclick = () => { UI.wtab = b.dataset.wtab; render(); }));
+    main.querySelectorAll('[data-wbi]').forEach((b) => (b.onclick = () => { UI.wbi = +b.dataset.wbi; UI.wbo = null; render(); }));
+    main.querySelectorAll('[data-wk]').forEach((b) => (b.onclick = () => { const st = w.sents[UI.wbo.i], k = +b.dataset.wk, need = UI.wbo.got.length;
+      if (k !== need && st.parts[k][0] !== st.parts[need][0]) { b.classList.remove('wr-shake'); void b.offsetWidth; b.classList.add('wr-shake'); ding(false); return; }
+      UI.wbo.got.push(k === need ? k : need); if (UI.wbo.got.length === st.parts.length) { wp[`${w.id}:b${UI.wbo.i}`] = Date.now(); save(); ding(true); side(); } render(); }));
+    { const b = $('#wb-next'); if (b) b.onclick = () => { UI.wbi = (UI.wbi || 0) + 1; UI.wbo = null; render(); }; }
+    { const b = $('#wb-reset'); if (b) b.onclick = () => { UI.wbo.got = []; render(); }; }
+    main.querySelectorAll('[data-wt]').forEach((b) => (b.onclick = () => { const i = +b.dataset.wt, q = w.tq[i]; UI.wtp = { ...(UI.wtp || {}), [i]: b.dataset.o };
+      if (b.dataset.o === q.ans) { wp[`${w.id}:t${i}`] = Date.now(); save(); ding(true); side(); } else ding(false); const y = scrollY; render(); scrollTo(0, y); }));
+    const ta = $('#wr-text');
+    if (ta) { let tm = null; ta.oninput = () => { const rec = (S.wrt[w.id] = { text: ta.value, at: Date.now() }), c = wCount(rec); $('#wr-n').textContent = c; $('#wr-bar').style.width = Math.min(100, c / w.goal * 100) + '%';
+      const used = w.trans.filter((x) => new RegExp(`(^|[^A-Za-z])${x.replace(/[,.]/g, '').replace(/ /g, '\\s+')}\\b`, 'i').test(ta.value)); $('#wr-check').innerHTML = w.trans.map((x) => `<span class="wr-c ${used.includes(x) ? 't' : 'x off'}">${used.includes(x) ? '✓ ' : ''}${esc(x)}</span>`).join('');
+      save(true); clearTimeout(tm); tm = setTimeout(() => { save(); side(); }, 1500); }; }
+  }
+  // 문장마다 늘 같은 순서로 섞기 (다시 열어도 블록 자리가 같게) — 처음 순서 그대로면 한 번 더 돌림
+  function shuf(a, seed) { const o = a.slice(); let x = seed * 9301 + 49297; for (let i = o.length - 1; i > 0; i--) { x = (x * 9301 + 49297) % 233280; const j = Math.floor(x / 233280 * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; } if (o.every((v, k) => v === k) && o.length > 1) o.push(o.shift()); return o; }
   function readView() {
     const m = UI.rmode, pg = UI.rpage;
     let html = `<section class="banner jua-hero rd-hero"><div><p class="jua-eyebrow">📖 ${esc(RD.book)} · Unit ${RD.unit} · ${esc(RD.subject || '')} · ${esc(RD.pages || '')}</p><h1>${esc(RD.title)}</h1><p><b>Big Idea</b> ${esc(RD.big)}<br><span class="rd-bigko">${esc(RD.bigKo)}</span></p></div><span class="jua-crown">👑</span></section>`;
@@ -440,6 +500,7 @@
     if (S.step === 'read' && UI.rmode === 'words') { WORDS = { when: `${RD.book} · Unit ${RD.unit} ${RD.title}`, test: '교과서 Key Words + More Words + 본문 해석에 꼭 필요한 말' }; WL = RD.words; WGROUP = RD.groups; } else { WORDS = WORDS0; WL = WL0; WGROUP = WGROUP0; }
     if (S.step === 'words' || (S.step === 'read' && UI.rmode === 'words')) { wordsView(); return; }
     if (S.step === 'read') { readView(); return; }
+    if (S.step === 'write' && WRS.length) { writeView(); return; }
     const u = UNITS.find((x) => x.no === S.unit);
     if (!u) { main.innerHTML = '<div class="empty">아직 문법 노트가 없어요.</div>'; return; }
     if (S.step === 'wrong') {
@@ -524,6 +585,8 @@
     S.terms = S.terms || {}; for (const k in sd.terms || {}) if (!S.terms[k] || (sd.terms[k].at || 0) > (S.terms[k].at || 0)) S.terms[k] = sd.terms[k];
     S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     S.rd = S.rd || {}; for (const k in sd.rd || {}) if (!S.rd[k] || (sd.rd[k].at || 0) > (S.rd[k].at || 0)) S.rd[k] = sd.rd[k];
+    S.wrt = S.wrt || {}; for (const k in sd.wrt || {}) if (!S.wrt[k] || (sd.wrt[k].at || 0) > (S.wrt[k].at || 0)) S.wrt[k] = sd.wrt[k];
+    S.wp = { ...(sd.wp || {}), ...(S.wp || {}) };
     S.wd = S.wd || {}; for (const k in sd.wd || {}) if (!S.wd[k] || (sd.wd[k].at || 0) > (S.wd[k].at || 0)) S.wd[k] = sd.wd[k];
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
     clean();
@@ -535,7 +598,7 @@
     try {
       const changed = merge(await rpc('naesin_get', { p_student: S.who, p_code: S.syncKey }));
       save(true);
-      if (changed && redraw && !document.activeElement.matches('input')) { const y = scrollY; render(); scrollTo(0, y); }
+      if (changed && redraw && !document.activeElement.matches('input, textarea')) { const y = scrollY; render(); scrollTo(0, y); }
       const o = { ...S }; ['unit', 'step', 'syncKey'].forEach((k) => delete o[k]);
       await rpc('naesin_put', { p_student: S.who, p_code: S.syncKey, p_data: o }); mark('ok', '☁︎ 저장됨');
     } catch (e) { mark('err', '☁︎ 연결 안 됨 (이 기기에는 저장됨)'); }
