@@ -46,16 +46,26 @@
     const wr = wrongAll(), nb = (st, icon, name, tally) => `<button class="nav-item ${S.step === st ? 'is-on' : ''}" data-st="${st}" type="button"><i class="ni">${icon}</i><span class="jua-nt">${name}</span>${tally ? `<span class="tally">${tally}</span>` : ''}</button>`;
     $('#nav').innerHTML = `<div class="jua-quick">${HW ? nb('hw', '✎', '일요일 수업', left) : ''}${MOCKS.length ? nb('mock', '📝', '모의고사', mkLeft() || '') : ''}${nb('sum', '📄', '개념 요약')}${nb('wrong', '✕', '틀린 문제<span class="jua-long"> 다시</span>', wr)}</div>` +
       // 학교 내신(한산중)과 천일문 수업을 두 묶음으로 — 섞이면 헷갈림 (선생님 2026-10-24)
-      ((sch) => sch.length ? `<div class="jua-book"><div class="jua-book-h">🏫 학교 내신 · ${esc(sch[0].school)}</div>${unitsNav(sch, false)}</div>` : '')(UNITS.filter((u) => u.school)) +
-      `<div class="jua-book"><div class="jua-book-h">📘 천일문 기본 · 일요일 수업</div>${unitsNav(UNITS.filter((u) => !u.school), true)}</div>`;
+      // 폰에서 한참 내려야 해서(선생님 2026-10-24) 두 묶음은 탭으로 하나만, 단계는 한 줄 칩, 지난 챕터는 접기
+      ((sch, cil) => { const bk = sch.length && S.book !== 'cil' ? 'sch' : 'cil';
+        return `<div class="jw-books">${sch.length ? `<button type="button" class="jw-bk ${bk === 'sch' ? 'on' : ''}" data-bk="sch">🏫 학교 내신</button>` : ''}<button type="button" class="jw-bk ${bk === 'cil' ? 'on' : ''}" data-bk="cil">📘 천일문 수업</button></div>` +
+          (bk === 'sch' ? `<div class="jw-bsub">${esc(sch[0].school)}</div>${unitsNav(sch, false)}` : unitsNav(cil, true)); })(UNITS.filter((u) => u.school), UNITS.filter((u) => !u.school));
     $('#who-name').textContent = S.who || '지원';
     $('#who-edit').textContent = '로그아웃';
   }
   function unitsNav(list, chs) {
-    return `<div class="jua-units">${list.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no).map((u, i, a) => `${chs && (!i || a[i - 1].chapter !== u.chapter) ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}<div class="jua-unit"><div class="jua-unit-h">${UL(u)} <span class="jw-ut">${esc(u.title)}</span></div><div class="jua-steps">${[2, 3, 4].map((st) => { const s2 = stat(u, st); return `<button class="nav-item ${S.unit === u.no && S.step === st ? 'is-on' : ''}" data-u="${u.no}" data-st="${st}" type="button"><i class="ni">${s2.n && s2.ok === s2.n ? '✓' : SM(u, st)}</i><span class="jua-nt">${SN(u, st)}</span><span class="tally ${s2.n && s2.ok === s2.n ? 'full' : ''}">${s2.n && s2.ok === s2.n ? '✓ ' : ''}${s2.ok}/${s2.n}</span><span class="jua-sbar"><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></span></button>`; }).join('')}</div></div>`).join('')}</div>`;
+    const all = list.slice().sort((x, y) => y.chapter - x.chapter || x.no - y.no), top = all.length ? all[0].chapter : 0;
+    const card = (u) => `<div class="jw-u"><div class="jw-uh"><b>${UL(u)}</b> ${esc(u.title)}</div><div class="jw-chips">${[2, 3, 4].map((st) => { const s2 = stat(u, st), full = s2.n && s2.ok === s2.n;
+      return `<button class="jw-chip ${S.unit === u.no && S.step === st ? 'is-on' : ''} ${full ? 'full' : ''}" data-u="${u.no}" data-st="${st}" type="button" title="${esc(SN(u, st))}"><span>${full ? '✓' : SM(u, st)}</span><em>${s2.ok}/${s2.n}</em><i style="width:${s2.n ? Math.round(s2.ok / s2.n * 100) : 0}%"></i></button>`; }).join('')}</div></div>`;
+    if (!chs) return `<div class="jw-us">${all.map(card).join('')}</div>`;
+    const cur = all.filter((u) => u.chapter === top), old = all.filter((u) => u.chapter !== top);
+    const grp = (us) => us.map((u, i, a) => `${!i || a[i - 1].chapter !== u.chapter ? `<div class="jw-ch">CHAPTER ${u.chapter} · ${esc(u.chTitle || '')}</div>` : ''}${card(u)}`).join('');
+    return `<div class="jw-us">${grp(cur)}</div>${old.length ? `<details class="jw-old" ${UI.oldOpen ? 'open' : ''}><summary>지난 챕터 ${[...new Set(old.map((u) => u.chapter))].length}개 보기</summary><div class="jw-us">${grp(old)}</div></details>` : ''}`;
   }
+
   const wrongAll = () => UNITS.reduce((n, u) => n + qs(u, 'wrong').length, 0) + mkWrong().length;
-  $('#nav').addEventListener('click', (e) => { const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'sum', 'mock'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (S.step === 'mock') UI.mfrom = null; save(true); goFx(b); });
+  $('#nav').addEventListener('toggle', (e) => { if (e.target.matches('.jw-old')) UI.oldOpen = e.target.open; }, true);
+  $('#nav').addEventListener('click', (e) => { const bk = e.target.closest('[data-bk]'); if (bk) { S.book = bk.dataset.bk; save(true); side(); return; } const b = e.target.closest('[data-st]'); if (!b) return; UI.hwT = null; delete document.documentElement.dataset.navopen; if (b.dataset.u) S.unit = +b.dataset.u; S.step = ['wrong', 'hw', 'sum', 'mock'].includes(b.dataset.st) ? b.dataset.st : +b.dataset.st; if (S.step === 'mock') UI.mfrom = null; save(true); goFx(b); });
   // 메뉴 칸을 누르면: 칸이 톡 눌리고 → 위에 분홍 로딩 줄 → 내용이 살짝 떠오르며 나타나고, 폰에서는 내용 있는 곳으로 내려감
   function goFx(btn, top) {
     const key = `${S.unit}:${S.step}`;

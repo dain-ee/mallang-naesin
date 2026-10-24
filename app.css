@@ -1931,6 +1931,34 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .exam-banner .perf-go { color: #4f5bd5; }
 .exam-banner.l6 .perf-go { color: #0f9d8a; }
 
+/* 지원 메뉴 정리 (2026-10-24 «폰으로 보면 한참 내려야») — 학교/천일문 탭 · 단원 한 줄 · 하중상 칩 */
+.jw-books { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 12px; padding: 4px; background: var(--accent-soft); border-radius: 14px; }
+.jw-bk { padding: 9px 4px; border: 0; border-radius: 10px; background: none; font: inherit; font-size: 13.5px; font-weight: 700; color: var(--sub); cursor: pointer; }
+.jw-bk.on { background: var(--card); color: var(--accent); box-shadow: 0 1px 3px rgba(20, 30, 90, .12); }
+.jw-bsub { margin: 8px 4px 0; font-size: 12px; font-weight: 600; color: var(--sub); }
+.jw-us { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+:root[data-sub="jiwon"] .jw-ch { margin: 6px 0 0; padding: 0 4px; }
+.jw-u { padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.jw-uh { font-size: 13px; font-weight: 600; color: var(--sub); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jw-uh b { color: var(--accent); font-weight: 800; margin-right: 2px; }
+.jw-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+.jw-chip { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font: inherit; font-size: 12.5px; color: var(--ink, inherit); cursor: pointer; }
+.jw-chip span { font-weight: 800; color: var(--accent); }
+.jw-chip em { font-style: normal; font-weight: 700; font-size: 12px; color: var(--sub); }
+.jw-chip i { position: absolute; left: 0; bottom: 0; height: 3px; background: linear-gradient(90deg, #7d93ee, var(--accent)); }
+.jw-chip.full em { color: var(--accent); }
+.jw-chip.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.jw-old { margin-top: 8px; }
+.jw-old summary { padding: 8px 4px; font-size: 12.5px; font-weight: 700; color: var(--sub); cursor: pointer; list-style: none; }
+.jw-old summary::before { content: "▸ "; }
+.jw-old[open] summary::before { content: "▾ "; }
+@media (max-width: 560px) {
+  :root[data-sub="jiwon"] .jua-quick { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  :root[data-sub="jiwon"] .jua-quick .nav-item { padding: 8px 2px 7px; }
+  :root[data-sub="jiwon"] .jua-quick .nav-item .ni { width: 26px; height: 26px; font-size: 13px; }
+}
+.jw-books, .jw-bsub, .jw-us, .jw-old { flex: 1 1 100%; width: 100%; box-sizing: border-box; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;
