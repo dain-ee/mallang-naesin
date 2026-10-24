@@ -416,7 +416,7 @@
         <span class="route-prog"><span class="bar"><span style="width:${pct(a, b)}%"></span></span><span class="route-m">${a} / ${b}${unit}</span></span>
         <span class="route-go" aria-hidden="true">›</span>
       </button>`;
-    main.innerHTML = perfBanner() + notesBanner() + gtableCard() + `
+    main.innerHTML = perfBanner() + notesBanner() + fiveCard() + gtableCard() + `
       <nav class="lesson-tabs" aria-label="단원">${LESSONS.map((l) => `<button class="ltab ${l.no === L.no ? 'on' : ''}" data-l="${l.no}" type="button"><b>${l.no}과</b><span>${esc(l.title)}</span></button>`).join('')}</nav>
       <section class="banner"><div><h1>Lesson ${L.no}. ${esc(L.title)}</h1><p>본문 「${esc(L.readingTitle)}」</p></div><span class="banner-ghost"></span></section>
       <h2 class="route-h">학습 순서</h2>
@@ -432,6 +432,7 @@
     main.querySelectorAll('[data-l]').forEach((b) => (b.onclick = () => setLesson(+b.dataset.l)));
     bindPerfBanner();
     bindGtable();
+    bindFive();
   }
 
   // ───────── 학교 선생님 필기 · 꼭 외울 표 ─────────
@@ -460,6 +461,31 @@
     main.querySelectorAll('[data-gtq]').forEach((b) => (b.onclick = () => { UI.gtq = b.dataset.gtq === 'off' ? null : gtQuiz(); again(); }));
     main.querySelectorAll('[data-gtk]').forEach((b) => (b.onclick = () => { const q = UI.gtq, cur = q.pool[q.i], ok = b.dataset.gtk === cur.k; if (ok) q.ok++; q.last = { ...cur, ok }; q.i++; again(); }));
     main.querySelectorAll('[data-notes]').forEach((b) => (b.onclick = () => { UI.notesL = +b.dataset.notes || UI.notesL || 6; go('notes'); window.scrollTo(0, 0); }));
+  }
+  // 5형식 기초 (선생님 2026-10-24: «5형식을 몰라서 지각동사·want you to 가 다 흔들림») — 예문은 5·6과 프린트 것. 퀴즈는 UI 만
+  function fiveCard() {
+    if (!NOTES || !NOTES.five || isHist()) return '';
+    const F = NOTES.five, q = UI.fvq;
+    let body;
+    if (q) {
+      const cur = q.pool[q.i];
+      body = !cur ? `<div class="gt-q"><b>${q.ok} / ${q.pool.length} 맞힘</b><div class="actions"><button class="btn ok" data-fvq="again" type="button">다시 섞어서</button><button class="btn ghost" data-fvq="off" type="button">설명 보기</button></div></div>`
+        : `<div class="gt-q"><div class="gt-qn">${q.i + 1} / ${q.pool.length} · 맞힘 ${q.ok}</div><div class="fv-qs">${esc(cur[0]).replace('______', '<span class="fv-blank">______</span>')}</div>${q.pick == null
+          ? `<div class="gt-btns">${cur[1].map((o, k) => `<button class="btn" data-fvk="${k}" type="button">${esc(o)}</button>`).join('')}</div>`
+          : `<div class="gt-last ${q.pick === cur[2] ? 'ok' : 'no'}">${q.pick === cur[2] ? '정답!' : `틀렸어요 — 정답은 <b>${esc(cur[1][cur[2]])}</b>`}</div><div class="fv-why">${esc(cur[3])}</div><button class="btn ok" data-fvn type="button">다음 문제</button>`}<button class="link" data-fvq="off" type="button">그만하고 설명 보기</button></div>`;
+    } else body = `<div class="fv-shape">${F.shape.map((x) => `<span>${rich(x)}</span>`).join('<i>+</i>')}</div><p class="fv-key">🔑 ${esc(F.key)} <span class="fv-legend"><b>네모</b> 목적어 · <u>밑줄</u> 목적격 보어</span></p>
+      <div class="fv-steps">${F.steps.map((st) => `<div class="fv-st"><div class="gt-t">${esc(st.t)}</div><div class="fv-pat">${esc(st.pat)} <span>${esc(st.ko)}</span></div><div class="fv-verbs">동사: ${esc(st.verbs)}</div><div class="fv-ex">${st.ex.map(([e, src]) => `<div>${rich(e)}${src ? `<span class="gt-src">${esc(src)}</span>` : ''}</div>`).join('')}</div></div>`).join('')}</div>
+      <div class="fv-wrong"><div class="gt-t">자주 틀리는 것</div>${F.wrong.map(([b, g, w]) => `<div class="fv-w"><span class="no">✕ ${b.replace(/<(?!\/?s>)[^>]*>/g, '')}</span><span class="ok">○ ${esc(g)}</span><span class="gt-src">${esc(w)}</span></div>`).join('')}</div>
+      <div class="fv-cmp"><div class="gt-t">${esc(F.cmp.t)}</div>${F.cmp.rows.map(([k, e, w, src]) => `<div class="fv-c"><b class="fv-k">${esc(k)}</b><span class="fv-ex">${rich(e)}</span><span>${esc(w)}</span></div>`).join('')}<div class="gt-tip">💡 ${esc(F.cmp.tip)}</div></div>
+      <div class="actions"><button class="btn ok" data-fvq="on" type="button">5형식 퀴즈 — 빈칸에 맞는 모양 고르기 (${F.quiz.length}문제)</button></div>`;
+    return `<section class="card gt-card fv-card"><div class="gt-eyebrow">🧱 5형식 기초 · 지각동사 · want you to</div><h2 class="gt-h">${esc(F.title)}</h2><p class="gt-why">${esc(F.why)}</p>${body}</section>`;
+  }
+  function bindFive() {
+    const again = () => { const y = scrollY; render(); scrollTo(0, y); };
+    const mk = () => { const pool = NOTES.five.quiz.slice(); for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; } return { pool, i: 0, ok: 0, pick: null }; };
+    main.querySelectorAll('[data-fvq]').forEach((b) => (b.onclick = () => { UI.fvq = b.dataset.fvq === 'off' ? null : mk(); again(); }));
+    main.querySelectorAll('[data-fvk]').forEach((b) => (b.onclick = () => { const q = UI.fvq; q.pick = +b.dataset.fvk; if (q.pick === q.pool[q.i][2]) q.ok++; again(); }));
+    main.querySelectorAll('[data-fvn]').forEach((b) => (b.onclick = () => { const q = UI.fvq; q.i++; q.pick = null; again(); }));
   }
   function notesBanner() {
     if (!NOTES || isHist()) return '';
