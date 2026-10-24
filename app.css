@@ -1959,6 +1959,25 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 }
 .jw-books, .jw-bsub, .jw-us, .jw-old { flex: 1 1 100%; width: 100%; box-sizing: border-box; }
 
+/* 실전 시험 (2026-10-24) — 학교처럼 객관식 25문제, 제출해야 채점 */
+.mock-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 0 16px; }
+.mock-banner { display: grid; gap: 2px; padding: 16px 20px; text-align: left; color: #fff; background: linear-gradient(120deg, #3b5bdb, #5c7cfa); border: 0; border-radius: 20px; box-shadow: 0 10px 24px -14px rgba(59, 91, 219, .8); cursor: pointer; font: inherit; }
+.mock-banner + .mock-banner { background: linear-gradient(120deg, #5f3dc4, #845ef7); box-shadow: 0 10px 24px -14px rgba(95, 61, 196, .8); }
+.mock-banner b { font-size: 20px; font-weight: 800; }
+.mock-banner .perf-go { justify-self: start; margin-top: 6px; }
+@media (max-width: 640px) { .mock-row { grid-template-columns: 1fr; gap: 10px; } }
+.mock-omr { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px; margin: 0 0 14px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.mock-omr a { display: grid; place-items: center; height: 28px; border-radius: 8px; font-size: 12px; font-weight: 700; color: var(--sub); background: var(--bg); text-decoration: none; }
+.mock-omr a.on { color: #fff; background: var(--accent); }
+.mock-omr a.ok { color: #fff; background: #2f9e44; }
+.mock-omr a.no { color: #fff; background: #e03131; }
+@media (max-width: 560px) { .mock-omr { grid-template-columns: repeat(13, 1fr); gap: 3px; padding: 8px; } .mock-omr a { height: 24px; font-size: 11px; border-radius: 6px; } }
+.mock-q { scroll-margin-top: 90px; }
+.passage.same { padding: 6px 12px; font-size: 13px; color: var(--sub); }
+.badge.bad { color: #e03131; background: #fff0f0; }
+.mock-foot { flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 40px; }
+.mock-ask { flex-basis: 100%; font-weight: 700; color: #e03131; }
+
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
     --bg: #191111;

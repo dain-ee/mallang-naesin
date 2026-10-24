@@ -16,6 +16,7 @@
   const subjOfUnit = (no) => (((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist');
   let HIST = null, HUNITS = [], HEXAMS = []; // 지금 고른 과목(역사 또는 과학)의 자료
   function useSubj() { const d = SUBJ[S.subj] || SUBJ.hist; HIST = d; HUNITS = d ? d.units : []; HEXAMS = d ? d.exams || [] : []; }
+  const MOCK = DATA.mock || null; // 실전 시험 — 학교처럼 25문제 다 풀고 제출해야 채점 (선생님 2026-10-24)
   const PERF = DATA.perf || null; // 수행평가 원고 — 홈·숙제 맨 위 배너
   const HW = DATA.homework || null; // 선생님이 낸 요일별 숙제 // 기출비 등에서 받은 실제 시험지 (문항마다 lesson 표시)
   // 문제 키 → 문제. 'ex:시험지:번호' 는 기출 시험지, '과:번호' 는 직접 만든 문제.
@@ -287,10 +288,11 @@
       ({ hhome, hconcept, hterms, hflow, hquiz, wrong, log: logView })[S.tab]?.(hunit());
     } else {
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
+      if (S.tab === 'mock' && !(MOCK && UI.mock)) S.tab = 'home';
       if (S.tab === 'perf' && !PERF) S.tab = 'home'; // 수행평가 끝(2026-10-17) — 원고는 content/perf.done.json 에 보관
       const L = lesson();
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
-      ({ hw: hwView, perf, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
+      ({ hw: hwView, perf, mock: mockView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
     hwBar();
     { const b = main.querySelector('.hwbar-tabs'); if (b) slideInk(b, 'hwbar', 1); main.querySelectorAll('.seg').forEach((s, i) => slideInk(s, `${S.tab}:${s.dataset.seg || i}`)); }
@@ -317,12 +319,50 @@
   });
 
 
+  // ───────── 실전 시험 ─────────
+  // 학교 시험은 객관식만 — 25문제를 다 고르고 「제출」해야 점수·정답·해설이 나온다. 고르는 동안은 맞았는지 안 보여 준다.
+  const mockSet = (id) => (MOCK ? MOCK.sets.find((x) => x.id === id) : null);
+  const mockRec = (id) => ((S.mock = S.mock || {})[id] = S.mock[id] || { p: {}, at: 0 });
+  const mockScore = (m, r) => m.questions.reduce((a, q, i) => a + (r.p[i] === q.answer ? 1 : 0), 0);
+  function mockBanners() {
+    if (!MOCK) return '';
+    return `<div class="mock-row">${MOCK.sets.map((m) => { const r = (S.mock || {})[m.id] || { p: {} }, n = m.questions.length, got = Object.keys(r.p).length, sc = r.sub ? mockScore(m, r) : 0;
+      return `<button class="mock-banner" data-mock="${m.id}" type="button"><span class="perf-eyebrow">📝 학교 시험처럼 · 객관식 ${n}문제</span><b>${esc(m.title)}</b><span class="perf-sub">${r.sub ? `${sc}/${n} 맞힘 · ${Math.round(sc * 100 / n)}점` : got ? `푸는 중 ${got}/${n}` : esc(m.sub || '아직 안 봤어요')}</span><span class="perf-go">${r.sub ? '결과 보기 ›' : got ? '이어서 풀기 ›' : '시험 보기 ›'}</span></button>`; }).join('')}</div>`;
+  }
+  function mockView() {
+    const m = mockSet(UI.mock), r = mockRec(m.id), n = m.questions.length, got = Object.keys(r.p).length, done = !!r.sub, sc = done ? mockScore(m, r) : 0;
+    if (!r.t0 && !done) { r.t0 = Date.now(); save(true); }
+    const mins = Math.round(((done ? r.sub : Date.now()) - (r.t0 || Date.now())) / 6e4);
+    const omr = `<div class="mock-omr">${m.questions.map((q, i) => { const p = r.p[i]; const cls = done ? (p === q.answer ? 'ok' : 'no') : p != null ? 'on' : ''; return `<a class="${cls}" href="#mq${i}" data-mj="${i}">${i + 1}</a>`; }).join('')}</div>`;
+    let prev = '';
+    const cards = m.questions.map((q, i) => {
+      if (done && UI.mockWrong && r.p[i] === q.answer) { prev = q.passage; return ''; }
+      const same = q.passage && q.passage === prev && !(done && UI.mockWrong); prev = q.passage;
+      const p = r.p[i];
+      return `<div class="card q-card mock-q" id="mq${i}"><div class="q-head"><span class="q-no">${i + 1}번</span><span class="cat">${esc(q.cat)}</span><span class="badge">${q.lesson}과</span>${done ? `<span class="badge ${p === q.answer ? 'ok' : 'bad'}">${p === q.answer ? '맞음' : p == null ? '안 고름' : '틀림'}</span>` : ''}</div>
+        <p class="q-text">${rich(q.q)}</p>${q.passage ? same ? '<div class="passage same">↑ 위와 같은 글</div>' : `<div class="passage">${rich(q.passage)}</div>` : ''}
+        <div class="choices">${q.choices.map((c, k) => { let cls = done ? (k === q.answer ? 'right' : k === p ? 'wrong' : '') : k === p ? 'sel' : ''; return `<button class="choice ${cls}" data-mq="${i}" data-k="${k}" type="button" ${done ? 'disabled' : ''}><span class="n">${'①②③④⑤'[k]}</span>${rich(c)}</button>`; }).join('')}</div>
+        ${done && q.exp ? `<div class="exp"><b>해설</b>  ${rich(q.exp)}</div>` : ''}</div>`; }).join('');
+    const left = n - got;
+    const foot = done ? `<div class="actions mock-foot"><button class="btn" id="mk-wrong" type="button">${UI.mockWrong ? '전체 보기' : `틀린 것만 보기 (${n - sc})`}</button><button class="btn ghost" id="mk-again" type="button">처음부터 다시 풀기</button></div>`
+      : `<div class="actions mock-foot">${UI.mockAsk ? `<span class="mock-ask">${left ? `안 고른 문제가 ${left}개 있어요. ` : ''}제출하면 고칠 수 없어요.</span><button class="btn primary" id="mk-yes" type="button">네, 제출할게요</button><button class="btn ghost" id="mk-no" type="button">더 볼게요</button>` : `<button class="btn primary" id="mk-sub" type="button">제출하기 (${got}/${n})</button>`}</div>`;
+    main.innerHTML = head(esc(m.title), done ? `${sc}/${n} 맞힘 · <b>${Math.round(sc * 100 / n)}점</b> · ${mins}분 걸림${(r.hist || []).length ? ` · 지난번 ${r.hist.map((h) => `${h.sc}/${n}`).join(', ')}` : ''}` : `${esc(m.sub || '')} · 다 고르고 맨 아래 「제출하기」 · 제출 전에는 정답이 안 보여요`) + omr + cards + foot;
+    main.querySelectorAll('[data-mq]').forEach((b) => (b.onclick = () => { const i = +b.dataset.mq, k = +b.dataset.k; r.p[i] = k; r.at = Date.now(); save(); b.closest('.choices').querySelectorAll('.choice').forEach((c) => c.classList.toggle('sel', c === b)); const o = main.querySelector(`.mock-omr [data-mj="${i}"]`); if (o) o.className = 'on'; const sb = $('#mk-sub'); if (sb) sb.textContent = `제출하기 (${Object.keys(r.p).length}/${n})`;}));
+    main.querySelectorAll('[data-mj]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); const el = $(`#mq${a.dataset.mj}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
+    const on = (id, f) => { const b = $(id); if (b) b.onclick = f; };
+    on('#mk-sub', () => { UI.mockAsk = 1; render(); $('.mock-foot').scrollIntoView({ block: 'center' }); });
+    on('#mk-no', () => { UI.mockAsk = 0; render(); });
+    on('#mk-yes', () => { UI.mockAsk = 0; r.sub = Date.now(); r.at = r.sub; const s2 = mockScore(m, r); logEv('실전 시험', s2, n, m.title); save(); render(); window.scrollTo(0, 0); });
+    on('#mk-wrong', () => { UI.mockWrong = !UI.mockWrong; render(); });
+    on('#mk-again', () => { r.hist = [...(r.hist || []), { at: r.sub, sc: mockScore(m, r) }]; r.p = {}; r.sub = 0; r.t0 = 0; r.at = Date.now(); UI.mockWrong = 0; save(); render(); window.scrollTo(0, 0); });
+  }
+
   // ───────── 수행평가 원고 ─────────
   const perfItems = () => PERF.sents.map((x, i) => ({ id: `${PERF.key || 'pf'}:${i}`, en: x.en, ko: x.ko, group: '수행평가 원고', sp: `${i + 1}` }));
   // 단원평가 큰 배너 — 선생님 예상문제(교과서 지도서 단원평가). 학교 시험과 거의 똑같이 나옴 (선생님 2026-10-20: «굉장히 중요»)
   function examBanners() {
     if (isHist()) return '';
-    return [5, 6].map((no) => { const L = LESSONS.find((l) => l.no === no), pages = L && L.school && L.school.sections ? L.school.sections.exam || [] : [];
+    return mockBanners() + [5, 6].map((no) => { const L = LESSONS.find((l) => l.no === no), pages = L && L.school && L.school.sections ? L.school.sections.exam || [] : [];
       if (!pages.length) return '';
       const st = scPages(L, pages).map((p) => scPageStat(L, p)).reduce((a, b) => ({ n: a.n + b.n, ok: a.ok + b.ok, done: a.done + b.done }), { n: 0, ok: 0, done: 0 });
       return `<button class="perf-banner exam-banner l${no}" data-exam="${no}" type="button"><span class="perf-eyebrow">⭐ 선생님 예상문제 · 학교 시험과 거의 똑같이 나와요</span><b>${no}과 단원평가 ${st.n}문제</b><span class="perf-sub">${st.done ? `${st.done}/${st.n} 풂 · ${st.ok}개 맞힘` : '아직 안 풀었어요'} · 교과서 지도서 ${pages.length}쪽</span><span class="perf-go">${st.done >= st.n && st.n ? '다시 보기 ›' : '풀러 가기 ›'}</span></button>`; }).join('');
@@ -334,6 +374,7 @@
     return examBanners() + `<button class="perf-banner" data-perf type="button"><span class="perf-eyebrow">📝 수행평가 · ${esc(dd)}</span><b>${esc(PERF.title)}</b><span class="perf-sub">원고 ${PERF.sents.length}문장 외우기 — ${m}/${it.length} 외움</span><span class="perf-go">외우러 가기 ›</span></button>`;
   }
   function bindPerfBanner() {
+    main.querySelectorAll('[data-mock]').forEach((b) => (b.onclick = () => { UI.mock = b.dataset.mock; UI.mockWrong = 0; UI.mockAsk = 0; go('mock'); }));
     main.querySelectorAll('[data-perf]').forEach((b) => (b.onclick = () => go('perf')));
     main.querySelectorAll('[data-exam]').forEach((b) => (b.onclick = () => { const no = +b.dataset.exam, L = LESSONS.find((l) => l.no === no), pages = L.school.sections.exam;
       if (S.lesson !== no) { loading(no); S.lesson = no; }
@@ -2042,6 +2083,7 @@
     const before = JSON.stringify(S);
     const or = (a = {}, b = {}) => { const o = { ...a }; for (const k in b) if (b[k] && (!o[k] || (typeof b[k] === 'number' && b[k] > o[k]))) o[k] = b[k]; return o; };
     S.hwSets = { ...(S.hwSets || {}), ...(sd.hwSets || {}) };
+    S.mock = S.mock || {}; for (const k in sd.mock || {}) if (!S.mock[k] || (sd.mock[k].at || 0) > (S.mock[k].at || 0)) S.mock[k] = sd.mock[k];
     S.mt = S.mt || {}; for (const k in sd.mt || {}) if (!S.mt[k] || (sd.mt[k].at || 0) > (S.mt[k].at || 0)) S.mt[k] = sd.mt[k];
     S.sch = S.sch || {}; for (const k in sd.sch || {}) if (!S.sch[k] || (sd.sch[k].at || 0) > (S.sch[k].at || 0)) S.sch[k] = sd.sch[k];
     S.wr = S.wr || {}; for (const k in sd.wr || {}) if (!S.wr[k] || (sd.wr[k].at || 0) > (S.wr[k].at || 0)) S.wr[k] = sd.wr[k];
