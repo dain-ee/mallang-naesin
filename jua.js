@@ -306,10 +306,11 @@
   const LIS = DATA.listening || [], LU = LIS[LIS.length - 1] || { tracks: [], words: [] };
   const LMODE = { words: ['🔤', '① 단어'], lines: ['👂', '② 한 문장씩 듣기'], quiz: ['✅', '③ 교과서 문제'], dict: ['✍️', '④ 빈칸 받아쓰기'] };
   const lKey = (t, kind, i) => `${LU.unit}:${t}:${kind}${i}`;
+  const lqr = (t, i, ans) => { const k = lKey(t, 'q', i), lp = S.lp || {}; return (S.lq || {})[k] || (lp[k] && lp[k] > ((S.lqAt || {})[t] || 0) ? { p: ans, ok: true, at: lp[k] } : null); };
   function lTally(m) { const lp = S.lp || {};
     if (m === 'words') return [LU.words.filter((w) => lp[`${LU.unit}:w:${w[0]}`]).length, LU.words.length];
     if (m === 'lines') return [LU.tracks.reduce((a, t) => a + t.lines.filter((_, i) => lp[lKey(t.id, 'l', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.lines.length, 0)];
-    if (m === 'quiz') return [LU.tracks.reduce((a, t) => a + t.qs.filter((_, i) => lp[lKey(t.id, 'q', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.qs.length, 0)];
+    if (m === 'quiz') return [LU.tracks.reduce((a, t) => a + t.qs.filter((q, i) => lqr(t.id, i, q.ans)).length, 0), LU.tracks.reduce((a, t) => a + t.qs.length, 0)];
     return [LU.tracks.reduce((a, t) => a + t.lines.filter((l, i) => l.key && lp[lKey(t.id, 'd', i)]).length, 0), LU.tracks.reduce((a, t) => a + t.lines.filter((l) => l.key).length, 0)]; }
   let lAud = null, lStopT = null;
   function lStop() { clearTimeout(lStopT); if (lAud) lAud.pause(); document.querySelectorAll('.ls-play.on').forEach((b) => b.classList.remove('on')); }
@@ -336,13 +337,15 @@
         <p class="hint">▶ 를 눌러 한 문장씩 들어요. 따라 말해 보고 「들었어요」 · 가려진 글은 눌러서 확인</p>
         <ol class="ls-lines">${T.lines.map((l, i) => { const k = lKey(T.id, 'l', i), sh = UI.lshow || 'both'; return `<li class="${lp[k] ? 'ok' : ''}"><button type="button" class="ls-play" data-lp="${i}">▶</button><div class="ls-tx">${l.who ? `<span class="ls-who">${esc(l.who)}</span>` : ''}<p class="ls-en ${sh === 'none' ? 'hid' : ''}" data-reveal>${esc(l.en)}</p><p class="ls-ko ${sh !== 'both' ? 'hid' : ''}" data-reveal>${esc(l.ko)}</p></div><button type="button" class="chip ls-heard" data-heard="${i}">${lp[k] ? '♡' : '들었어요'}</button></li>`; }).join('')}</ol></div>`;
     } else if (m === 'quiz') {
-      html += trackBar + `<div class="card jua-sec"><div class="ls-head"><b>${T.page}쪽 ${esc(T.title)}</b> · Track ${T.track} <button class="btn sm2 ls-play" id="ls-all" type="button">▶ 전체 듣기</button></div><p class="hint">먼저 전체를 듣고 풀어요. 틀리면 근거 문장을 다시 들을 수 있어요.</p>
-        <ol class="ls-qs">${T.qs.map((q, i) => { const k = lKey(T.id, 'q', i), pk = (UI.lpick || {})[k], ok = lp[k];
-          return `<li><p class="ls-q">${q.part ? `<span class="ls-part">${esc(q.part)}</span> ` : ''}${esc(q.q)}</p><p class="hint">${esc(q.ko)}</p><div class="ls-ops">${q.ops.map((o) => `<button type="button" class="chip ${ok && o === q.ans ? 'right' : !ok && pk === o ? 'wrong' : ''}" data-lq="${i}" data-o="${esc(o)}" ${ok ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>
-          ${ok || pk ? `<div class="jua-fb ${ok ? 'ok' : 'no'}">${ok ? '✓ 정답! ' : '앗, 다시! 근거 문장을 들어 봐요 — '}${ok ? esc(q.why) : ''}<div class="ls-refs">${q.ref.map((r) => `<button type="button" class="chip ls-play" data-lp="${r}">▶ ${esc(T.lines[r].en.slice(0, 38))}${T.lines[r].en.length > 38 ? '…' : ''}</button>`).join('')}</div></div>` : ''}</li>`; }).join('')}</ol></div>`;
+      // 한 번 고르면 바로 채점 (선생님 2026-10-24: «한 번 클릭하면 틀렸다고 되고 몇 번을 클릭해야») — 틀려도 정답·해설·근거 문장이 바로 나옴
+      S.lq = S.lq || {}; const rs = T.qs.map((q, i) => lqr(T.id, i, q.ans)), done = rs.filter(Boolean), right = done.filter((r) => r.ok);
+      html += trackBar + `<div class="card jua-sec"><div class="ls-head"><b>${T.page}쪽 ${esc(T.title)}</b> · Track ${T.track} <button class="btn sm2 ls-play" id="ls-all" type="button">▶ 전체 듣기</button></div><p class="hint">먼저 전체를 듣고 풀어요. 한 번 고르면 바로 채점돼요.${done.length ? ` · <b>${right.length}/${done.length} 맞힘</b> <button class="chip" id="lq-again" type="button">↺ 이 쪽 다시 풀기</button>` : ''}</p>
+        <ol class="ls-qs">${T.qs.map((q, i) => { const r = rs[i];
+          return `<li><p class="ls-q">${q.part ? `<span class="ls-part">${esc(q.part)}</span> ` : ''}${esc(q.q)}</p><p class="hint">${esc(q.ko)}</p><div class="ls-ops">${q.ops.map((o) => `<button type="button" class="chip ${r && o === q.ans ? 'right' : r && o === r.p ? 'wrong' : ''}" data-lq="${i}" data-o="${esc(o)}" ${r ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>
+          ${r ? `<div class="jua-fb ${r.ok ? 'ok' : 'no'}">${r.ok ? '✓ 정답! ' : `✗ 아쉬워요 — 정답은 <b>${esc(q.ans)}</b> · `}${esc(q.why)}<div class="ls-refs">${q.ref.map((x) => `<button type="button" class="chip ls-play" data-lp="${x}">▶ ${esc(T.lines[x].en.slice(0, 38))}${T.lines[x].en.length > 38 ? '…' : ''}</button>`).join('')}</div></div>` : ''}</li>`; }).join('')}</ol></div>`;
     } else {
       html += trackBar + `<div class="card jua-sec"><p class="hint">▶ 듣고 빈칸 낱말을 써요 (첫 글자 힌트) · Enter 로 확인</p><ol class="ls-lines">${T.lines.map((l, i) => { if (!l.key) return ''; const k = lKey(T.id, 'd', i), ok = lp[k];
-        const rx = new RegExp(`\\b${l.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`); const en = esc(l.en).replace(rx, ok ? `<b class="ls-got">${esc(l.key)}</b>` : `<input class="ls-in" data-di="${i}" size="${Math.max(4, l.key.length)}" placeholder="${esc(l.key[0])}…" autocomplete="off" spellcheck="false">`);
+        const rx = new RegExp(`\\b${l.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`); const miss = ((UI.dmiss || {})[`${T.id}:${i}`] || 0) >= 3; const en = esc(l.en).replace(rx, ok ? `<b class="ls-got">${esc(l.key)}</b>` : miss ? `<b class="ls-miss" title="세 번 틀려서 정답을 보여 줌">${esc(l.key)}</b>` : `<input class="ls-in" data-di="${i}" size="${Math.max(4, l.key.length)}" placeholder="${esc(l.key[0])}…" autocomplete="off" spellcheck="false">`);
         return `<li class="${ok ? 'ok' : ''}"><button type="button" class="ls-play" data-lp="${i}">▶</button><div class="ls-tx"><p class="ls-en">${en}</p><p class="ls-ko">${esc(l.ko)}</p></div></li>`; }).join('')}</ol></div>`;
     }
     main.innerHTML = html;
@@ -352,16 +355,19 @@
     main.querySelectorAll('[data-lshow]').forEach((b) => (b.onclick = () => { UI.lshow = b.dataset.lshow; render(); }));
     main.querySelectorAll('[data-reveal]').forEach((x) => (x.onclick = () => x.classList.remove('hid')));
     main.querySelectorAll('[data-say]').forEach((b) => (b.onclick = () => say(b.dataset.say)));
-    main.querySelectorAll('[data-know]').forEach((b) => (b.onclick = () => { const k = `${LU.unit}:w:${b.dataset.know}`; if (lp[k]) delete lp[k]; else { lp[k] = Date.now(); ding(true); } save(); render(); side(); }));
+    main.querySelectorAll('[data-know]').forEach((b) => (b.onclick = () => { const k = `${LU.unit}:w:${b.dataset.know}`; if (S.lp[k]) delete S.lp[k]; else { S.lp[k] = Date.now(); ding(true); } save(); render(); side(); }));
     main.querySelectorAll('[data-lp]').forEach((b) => (b.onclick = () => { const l = T.lines[+b.dataset.lp]; lPlay(T.url, l.s, l.e, b); }));
     { const b = $('#ls-all'); if (b) b.onclick = () => { if (b.classList.contains('on')) { lStop(); return; } lPlay(T.url, T.lines[0].s, 0, b); }; }
     { const c = $('#ls-slow'); if (c) c.onchange = () => { UI.lslow = c.checked ? 1 : 0; }; }
-    main.querySelectorAll('[data-heard]').forEach((b) => (b.onclick = () => { const k = lKey(T.id, 'l', +b.dataset.heard); if (lp[k]) delete lp[k]; else lp[k] = Date.now(); save(); b.closest('li').classList.toggle('ok', !!lp[k]); b.textContent = lp[k] ? '♡' : '들었어요'; side(); }));
-    main.querySelectorAll('[data-lq]').forEach((b) => (b.onclick = () => { const i = +b.dataset.lq, q = T.qs[i], k = lKey(T.id, 'q', i); UI.lpick = { ...(UI.lpick || {}), [k]: b.dataset.o };
-      if (b.dataset.o === q.ans) { lp[k] = Date.now(); save(); ding(true); side(); } else ding(false); const y = scrollY; render(); scrollTo(0, y); }));
+    main.querySelectorAll('[data-heard]').forEach((b) => (b.onclick = () => { const k = lKey(T.id, 'l', +b.dataset.heard); if (S.lp[k]) delete S.lp[k]; else S.lp[k] = Date.now(); save(); b.closest('li').classList.toggle('ok', !!S.lp[k]); b.textContent = S.lp[k] ? '♡' : '들었어요'; side(); }));
+    main.querySelectorAll('[data-lq]').forEach((b) => (b.onclick = () => { const i = +b.dataset.lq, q = T.qs[i], k = lKey(T.id, 'q', i), ok = b.dataset.o === q.ans; if (lqr(T.id, i, q.ans)) return;
+      S.lq[k] = { p: b.dataset.o, ok, at: Date.now() }; if (ok) S.lp[k] = Date.now(); save(); ding(ok); side(); const y = scrollY; render(); scrollTo(0, y); }));
+    { const b = $('#lq-again'); if (b) b.onclick = () => { T.qs.forEach((_, i) => delete S.lq[lKey(T.id, 'q', i)]); S.lqAt = { ...(S.lqAt || {}), [T.id]: Date.now() }; save(); side(); render(); }; }
     main.querySelectorAll('.ls-in').forEach((inp) => (inp.onkeydown = (e) => { if (e.key !== 'Enter') return; const i = +inp.dataset.di, l = T.lines[i];
-      if (inp.value.trim().toLowerCase() === l.key.toLowerCase()) { lp[lKey(T.id, 'd', i)] = Date.now(); save(); ding(true); side(); const y = scrollY; render(); scrollTo(0, y); const nx = main.querySelector('.ls-in'); if (nx) nx.focus({ preventScroll: true }); }
-      else { ding(false); inp.classList.remove('wr-shake'); void inp.offsetWidth; inp.classList.add('wr-shake'); inp.placeholder = l.key.slice(0, Math.min(l.key.length - 1, (inp.dataset.h = (+inp.dataset.h || 1) + 1))) + '…'; inp.value = ''; } }));
+      if (inp.value.trim().toLowerCase() === l.key.toLowerCase()) { S.lp[lKey(T.id, 'd', i)] = Date.now(); save(); ding(true); side(); const y = scrollY; render(); scrollTo(0, y); const nx = main.querySelector('.ls-in'); if (nx) nx.focus({ preventScroll: true }); }
+      else { ding(false); const h = (UI.dmiss = UI.dmiss || {})[`${T.id}:${i}`] = (UI.dmiss[`${T.id}:${i}`] || 0) + 1;
+        if (h >= 3) { const y = scrollY; render(); scrollTo(0, y); return; } // 세 번 틀리면 정답을 보여 주고 넘어감
+        inp.classList.remove('wr-shake'); void inp.offsetWidth; inp.classList.add('wr-shake'); inp.placeholder = l.key.slice(0, Math.min(l.key.length - 1, h + 1)) + '…'; inp.value = ''; } }));
   }
 
   // ───────── ✏️ Writing ─────────
@@ -410,11 +416,11 @@
     main.querySelectorAll('[data-wbi]').forEach((b) => (b.onclick = () => { UI.wbi = +b.dataset.wbi; UI.wbo = null; render(); }));
     main.querySelectorAll('[data-wk]').forEach((b) => (b.onclick = () => { const st = w.sents[UI.wbo.i], k = +b.dataset.wk, need = UI.wbo.got.length;
       if (k !== need && st.parts[k][0] !== st.parts[need][0]) { b.classList.remove('wr-shake'); void b.offsetWidth; b.classList.add('wr-shake'); ding(false); return; }
-      UI.wbo.got.push(k === need ? k : need); if (UI.wbo.got.length === st.parts.length) { wp[`${w.id}:b${UI.wbo.i}`] = Date.now(); save(); ding(true); side(); } render(); }));
+      UI.wbo.got.push(k === need ? k : need); if (UI.wbo.got.length === st.parts.length) { S.wp[`${w.id}:b${UI.wbo.i}`] = Date.now(); save(); ding(true); side(); } render(); }));
     { const b = $('#wb-next'); if (b) b.onclick = () => { UI.wbi = (UI.wbi || 0) + 1; UI.wbo = null; render(); }; }
     { const b = $('#wb-reset'); if (b) b.onclick = () => { UI.wbo.got = []; render(); }; }
     main.querySelectorAll('[data-wt]').forEach((b) => (b.onclick = () => { const i = +b.dataset.wt, q = w.tq[i]; UI.wtp = { ...(UI.wtp || {}), [i]: b.dataset.o };
-      if (b.dataset.o === q.ans) { wp[`${w.id}:t${i}`] = Date.now(); save(); ding(true); side(); } else ding(false); const y = scrollY; render(); scrollTo(0, y); }));
+      if (b.dataset.o === q.ans) { S.wp[`${w.id}:t${i}`] = Date.now(); save(); ding(true); side(); } else ding(false); const y = scrollY; render(); scrollTo(0, y); }));
     const ta = $('#wr-text');
     if (ta) { let tm = null; ta.oninput = () => { const rec = (S.wrt[w.id] = { text: ta.value, at: Date.now() }), c = wCount(rec); $('#wr-n').textContent = c; $('#wr-bar').style.width = Math.min(100, c / w.goal * 100) + '%';
       const used = w.trans.filter((x) => new RegExp(`(^|[^A-Za-z])${x.replace(/[,.]/g, '').replace(/ /g, '\\s+')}\\b`, 'i').test(ta.value)); $('#wr-check').innerHTML = w.trans.map((x) => `<span class="wr-c ${used.includes(x) ? 't' : 'x off'}">${used.includes(x) ? '✓ ' : ''}${esc(x)}</span>`).join('');
@@ -651,8 +657,13 @@
     S.seen = { ...(sd.seen || {}), ...(S.seen || {}) };
     S.rd = S.rd || {}; for (const k in sd.rd || {}) if (!S.rd[k] || (sd.rd[k].at || 0) > (S.rd[k].at || 0)) S.rd[k] = sd.rd[k];
     S.wrt = S.wrt || {}; for (const k in sd.wrt || {}) if (!S.wrt[k] || (sd.wrt[k].at || 0) > (S.wrt[k].at || 0)) S.wrt[k] = sd.wrt[k];
-    S.wp = { ...(sd.wp || {}), ...(S.wp || {}) };
-    S.lp = { ...(sd.lp || {}), ...(S.lp || {}) };
+    // 같은 묶음을 그대로 두고 채워 넣음 — 새 묶음으로 바꿔 끼우면 화면이 붙잡은 옛 묶음에 기록이 적혀 사라짐(정답을 눌러도 틀렸다고 나온 버그, 2026-10-24)
+    S.wp = S.wp || {}; for (const k in sd.wp || {}) if (!(k in S.wp)) S.wp[k] = sd.wp[k];
+    S.lp = S.lp || {}; for (const k in sd.lp || {}) if (!(k in S.lp)) S.lp[k] = sd.lp[k];
+    // 리스닝 문제 기록 — 「다시 풀기」한 쪽(lqAt)보다 먼저 푼 것은 다른 기기에서 와도 되살리지 않음
+    S.lqAt = S.lqAt || {}; for (const t in sd.lqAt || {}) if ((sd.lqAt[t] || 0) > (S.lqAt[t] || 0)) S.lqAt[t] = sd.lqAt[t];
+    S.lq = S.lq || {}; for (const k in sd.lq || {}) if (!S.lq[k] || (sd.lq[k].at || 0) > (S.lq[k].at || 0)) S.lq[k] = sd.lq[k];
+    for (const k in S.lq) { const t = k.split(':')[1]; if ((S.lq[k].at || 0) <= (S.lqAt[t] || 0)) delete S.lq[k]; }
     S.wd = S.wd || {}; for (const k in sd.wd || {}) if (!S.wd[k] || (sd.wd[k].at || 0) > (S.wd[k].at || 0)) S.wd[k] = sd.wd[k];
     const seen = new Set(S.log.map((e) => `${e.at}|${e.t}`)); S.log = [...S.log, ...(sd.log || []).filter((e) => !seen.has(`${e.at}|${e.t}`))].sort((a, b) => a.at - b.at);
     clean();

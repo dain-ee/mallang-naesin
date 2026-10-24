@@ -2051,6 +2051,7 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .ls-in { font: inherit; font-size: 16px; padding: 2px 6px; border: 0; border-bottom: 2px solid var(--accent); background: var(--accent-soft); border-radius: 4px; color: inherit; }
 .ls-got { color: var(--accent); }
 @media (max-width: 560px) { .ls-words { grid-template-columns: 1fr; } .ls-en { font-size: 16px; } }
+.ls-miss { color: #e03131; text-decoration: underline wavy; }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
