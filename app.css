@@ -1854,6 +1854,14 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 }
 @media (prefers-color-scheme: dark) {:root:not([data-theme="light"])[data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
 }
+/* 국어는 주황·살구 계열 */
+:root[data-subj="kor"] {
+  --accent: #d9622b; --accent-2: #f2a27a; --accent-soft: #fdeee6;
+  --banner: linear-gradient(115deg, #ffc3a3, #ffd6bf 40%, #ffe9dc 70%, #fff6f0); --banner-ink: #8a3412;
+  --shadow: 0 1px 2px rgba(23, 33, 58, 0.04), 0 8px 24px rgba(217, 98, 43, 0.08);
+}
+@media (prefers-color-scheme: dark) {:root:not([data-theme="light"])[data-subj="kor"] { --accent: #f5a07a; --accent-2: #d9622b; --accent-soft: #3d2216; --banner: linear-gradient(115deg, #7a3517 0%, #632b13 50%, #4d2210 100%); --banner-ink: #ffe6d9; }
+}
 /* 숙제 — 아코디언: 하루만 펼침, 스르륵 (2026-10-16) */
 .hw-today { margin-bottom: 6px; }
 .hw-list { display: flex; flex-direction: column; gap: 8px; }
@@ -1877,6 +1885,7 @@ details.mk-ko p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.75; }
 .hw-sub { display: inline-block; padding: 2px 8px; font-size: 11.5px; font-weight: 800; border-radius: 99px; color: var(--accent); background: var(--accent-soft); }
 .hw-sub.s-hist { color: #a05a12; background: color-mix(in srgb, #f59e0b 16%, var(--card)); }
 .hw-sub.s-sci { color: #11795a; background: color-mix(in srgb, #10b981 15%, var(--card)); }
+.hw-sub.s-kor { color: #b4471a; background: color-mix(in srgb, #f97316 15%, var(--card)); }
 .hw-sub.s-done { color: var(--mid); background: color-mix(in srgb, var(--mid) 12%, var(--card)); }
 .hw-grp { margin: 6px 0 -2px; }
 .hw-grp:first-child { margin-top: 0; }
@@ -2186,6 +2195,8 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 :root[data-theme="dark"][data-kid="jua"]:not([data-theme="light"]) { --bg: #1d1218; --card: #2a1922; --line: #4a2a3a; --line-soft: #3a2230; --accent: #ff8fc0; --accent-2: #ff6fae; --accent-soft: #3d2030; --ok: #ff8fc0; } 
 :root[data-theme="dark"][data-kid="jua"][data-sub="jiwon"]:not([data-theme="light"]) { --bg: #10141f; --card: #181e2c; --line: #2a3349; --line-soft: #1f2638; --accent: #8ea2ff; --accent-2: #6f86f5; --accent-soft: #222c47; --ok: #4fc08d; } 
 :root[data-theme="dark"][data-subj="sci"] { --accent: #9b9bf6; --accent-2: #5b5bd6; --accent-soft: #23234a; --banner: linear-gradient(115deg, #34348a 0%, #2a2a6e 50%, #222256 100%); --banner-ink: #e3e3ff; }
+
+:root[data-theme="dark"][data-subj="kor"] { --accent: #f5a07a; --accent-2: #d9622b; --accent-soft: #3d2216; --banner: linear-gradient(115deg, #7a3517 0%, #632b13 50%, #4d2210 100%); --banner-ink: #ffe6d9; }
 
 :root[data-theme="dark"] .gt-g, :root[data-theme="dark"] .gt-ing, :root[data-theme="dark"] .gt-to, :root[data-theme="dark"] .gt-both, :root[data-theme="dark"] .gt-diff { background: var(--card); border-color: var(--line); }:root[data-theme="dark"] .gt-t, :root[data-theme="dark"] .gt-v b, :root[data-theme="dark"] .gt-ex { color: var(--ink); }:root[data-theme="dark"] .gt-v { background: var(--line-soft); color: var(--mid); }:root[data-theme="dark"] .gt-tip { color: var(--sub); }:root[data-theme="dark"] .notes-i.star { background: rgba(253, 126, 20, .14); }
 

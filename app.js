@@ -10,10 +10,10 @@
   const LESSONS = DATA.lessons;
   const EXAMS = DATA.exams || [];
   // 역사·과학 — 같은 틀(개념 빈칸·핵심 용어·흐름·실전 문제)을 과목만 바꿔 씀. 단원 번호는 과목끼리 겹치지 않게(역사 2·3, 과학 5·6)
-  const SUBJ = { hist: DATA.history || null, sci: DATA.science || null }, SUBJ_NAME = { en: '영어', hist: '역사', sci: '과학' };
-  const ALLU = [...((SUBJ.hist || {}).units || []), ...((SUBJ.sci || {}).units || [])], ALLX = [...((SUBJ.hist || {}).exams || []), ...((SUBJ.sci || {}).exams || [])];
+  const SUBJ = { hist: DATA.history || null, sci: DATA.science || null, kor: DATA.korean || null }, SUBJ_NAME = { en: '영어', hist: '역사', sci: '과학', kor: '국어' };
+  const ALLU = [...((SUBJ.hist || {}).units || []), ...((SUBJ.sci || {}).units || []), ...((SUBJ.kor || {}).units || [])], ALLX = [...((SUBJ.hist || {}).exams || []), ...((SUBJ.sci || {}).exams || []), ...((SUBJ.kor || {}).exams || [])];
   ALLU.forEach((u) => { u.terms = (u.terms || []).filter((x) => !x.off); }); // 시험 범위 밖으로 뺀 용어(off)는 아예 안 보임 (용어 기록은 낱말로 남아 섞이지 않음)
-  const subjOfUnit = (no) => (((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist');
+  const subjOfUnit = (no) => (((SUBJ.kor || {}).units || []).some((u) => u.no === no) ? 'kor' : ((SUBJ.sci || {}).units || []).some((u) => u.no === no) ? 'sci' : 'hist'); // 국어 21·22
   let HIST = null, HUNITS = [], HEXAMS = []; // 지금 고른 과목(역사 또는 과학)의 자료
   function useSubj() { const d = SUBJ[S.subj] || SUBJ.hist; HIST = d; HUNITS = d ? d.units : []; HEXAMS = d ? d.exams || [] : []; }
   const NOTES = DATA.notes || null; // 학교 선생님 필기 모음 + 동명사/to부정사 표 (2026-10-24)
@@ -224,7 +224,7 @@
         NAV[hs ? 'hist' : 'en'].map(([t, i, n]) => `<button class="nav-item" data-tab="${t}" type="button"><i class="ni">${i}</i>${n}</button>`).join('') +
         `<button class="nav-item" data-tab="wrong" type="button"><i class="ni">✕</i>오답노트<span id="wrong-tally" class="tally" hidden>0</span></button><button class="nav-item" data-tab="log" type="button"><i class="ni">✓</i>기록</button>`;
     }
-    if (SUBJ.hist || SUBJ.sci) { $('#subj').hidden = false; document.querySelectorAll('#subj [data-subj]').forEach((b) => { b.hidden = b.dataset.subj !== 'en' && !SUBJ[b.dataset.subj]; b.classList.toggle('on', b.dataset.subj === (hs ? S.subj : 'en')); }); }
+    if (SUBJ.hist || SUBJ.sci || SUBJ.kor) { $('#subj').hidden = false; document.querySelectorAll('#subj [data-subj]').forEach((b) => { b.hidden = b.dataset.subj !== 'en' && !SUBJ[b.dataset.subj]; b.classList.toggle('on', b.dataset.subj === (hs ? S.subj : 'en')); }); }
     const L = lesson(), U = hunit();
     $('#lesson-sub').textContent = hs ? (U ? `${SN()} ${U.code} · ${U.title}` : '자료 없음') : L ? `${L.no}과 · ${L.title}` : '자료 없음';
     document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('is-on', b.dataset.tab === S.tab));
@@ -1533,7 +1533,7 @@
       const parts = shortParts(q), typed = r ? String(r.typed || '').split(' ‖ ') : [];
       body += `<div class="short2">${(parts || ['']).map((p, i) => `<div class="sp-row">${parts ? `<span class="sp-n">(${i + 1})</span>` : ''}<textarea class="sh-part" rows="${parts ? 1 : 2}" spellcheck="false" autocomplete="off" placeholder="${parts ? `(${i + 1})의 답` : '답을 쓰세요 · Enter 채점 · Shift+Enter 줄바꿈'}" ${r ? 'disabled' : ''}>${esc(typed[i] || '')}</textarea></div>`).join('')}
         ${r ? '' : `<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary sh-go" type="button">채점</button><button class="btn ghost sh-hint" type="button">💡 힌트</button><button class="btn ghost sh-give" type="button">모르겠어요</button></div><div class="sh-hintbox" hidden>${esc(shortHint(q))}</div>`}</div>`;
-      if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? (r.self ? '✓ 내 답도 맞음 (스스로 채점)' : '정답!') : '아쉬워요 — 모범 답안과 다른 곳을 확인해요'}
+      if (r) body += `<div class="verdict ${r.ok ? 'ok' : 'no'}">${r.ok ? (r.self ? '✓ 내 답도 맞음 (스스로 채점)' : '정답!') : '아쉬워요. 모범 답안과 다른 곳을 확인해요'}
         ${!r.ok && r.typed ? `<div class="diff-line sh-diff">${shortDiff(q, r.typed)}</div>` : ''}
         <span class="tip">모범 답안: ${q.answer.map(esc).join('  /  ')}</span>
         ${!r.ok && r.typed ? '<button class="btn sm2 sh-self" type="button">내 답도 맞아요</button>' : ''}</div>`;
@@ -1661,7 +1661,7 @@
       bindHs(); return;
     }
     let n = 0;
-    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」 — 한 묶음씩 매겨요', tabs) + hsb + U.sections.map((sec, si) => { if (sec.off || !inHw(si)) return '';
+    main.innerHTML = head(`개념 정리 · ${esc(U.code)}`, '빈칸을 채우고 「채점」, 한 묶음씩 매겨요', tabs) + hsb + U.sections.map((sec, si) => { if (sec.off || !inHw(si)) return '';
       const rows = sec.blocks.filter((b) => b.pts).map((b) => `<div class="wsub">${esc(b.h)}</div>` + b.pts.map((p) => {
         const ans = [...p.matchAll(/\{([^}]+)\}/g)].map((m) => m[1].replace(/\|/g, '/'));
         const q = p.replace(/\{[^}]+\}/g, '______');
@@ -1773,7 +1773,7 @@
         if (placed.length !== f.steps.length) { ver.hidden = true; return; }
         const ok = placed.every((v, i) => v === i);
         ver.hidden = false; ver.className = 'verdict ' + (ok ? 'ok' : 'no');
-        ver.innerHTML = ok ? '정답! 🎉' : `순서가 달라요 — 틀린 낱장을 눌러 빼고 다시 놓아 봐요`;
+        ver.innerHTML = ok ? '정답! 🎉' : `순서가 달라요. 틀린 낱장을 눌러 빼고 다시 놓아 봐요`;
         logEv('흐름 잇기', ok ? 1 : 0, 1, f.title);
         if (ok) { S.dm = S.dm || {}; S.dm['flow:' + id] = Date.now(); delete UI.redo[id]; save(); react(true, ans); setTimeout(() => { const y = scrollY; render(); scrollTo(0, y); }, 700); }
         else { [...ans.children].forEach((c, i) => c.classList.toggle('bad', +c.dataset.i !== i)); react(false, ans); }
@@ -2002,7 +2002,7 @@
     let html = perfBanner() + `<section class="banner hw-hero"><div><p class="hw-eyebrow">${esc(HW.student)}의 숙제 · ${esc(HW.dueLabel)}까지</p><h1>${esc(HW.title)}</h1>
       <p>${dd > 0 ? `D-${dd}` : dd === 0 ? '오늘 수업!' : '마감 지남'} · ${TEACHER ? `${esc(S.who)}이가 한 만큼 실시간으로 채워져요` : '하루치를 다 하면 「선생님께 알리기」를 눌러 카톡으로 보내 주세요'}</p></div><span class="banner-ghost"></span></section>`;
     // 과목별로 묶어서 — 오늘 것만 펼치고 나머지 날은 한 줄로 접음 (2026-10-16 선생님: 숙제가 너무 길고 지저분)
-    const tkSubj = (tk) => { const g = tk.go || {}; return g.tab === 'wrong' ? ['done', '마무리'] : g.subj === 'hist' ? ['hist', '역사'] : g.subj === 'sci' ? ['sci', '과학'] : ['en', '영어']; };
+    const tkSubj = (tk) => { const g = tk.go || {}; return g.tab === 'wrong' ? ['done', '마무리'] : g.subj === 'hist' ? ['hist', '역사'] : g.subj === 'sci' ? ['sci', '과학'] : g.subj === 'kor' ? ['kor', '국어'] : ['en', '영어']; };
     const taskBtn = (d, tk, i) => { const ok = hwTaskOk(tk), info = tk.checks.map((c) => hwCheck(c).txt).join(' · ');
       return `<button class="hw-task ${ok ? 'ok' : ''}" data-day="${d.id}" data-i="${i}" type="button"><span class="hw-box">${ok ? '✓' : i + 1}</span>
         <span class="hw-body"><span class="hw-t">${esc(tk.t)}</span><span class="hw-d">${esc(tk.d)}</span><span class="hw-s">${esc(info)}</span></span><span class="hw-go">${ok ? '다시 보기' : '하러 가기 ›'}</span></button>`; };
@@ -2072,15 +2072,15 @@
       <div class="stat"><div class="k">연속 공부</div><div class="val">${streak}<em>일째</em></div></div>
       <div class="stat"><div class="k">전체 정답률</div><div class="val">${an ? pct(aok, an) : 0}<em>%</em></div></div>
       <div class="stat"><div class="k">오답노트</div><div class="val">${Object.keys(S.wrong).length}<em>문제</em></div></div></div>`;
-    ['hist', 'sci'].filter((k) => SUBJ[k]).forEach((sk) => html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">${SUBJ_NAME[sk]} 단원별 진도</h3>${SUBJ[sk].units.map((u) => {
+    ['hist', 'sci', 'kor'].filter((k) => SUBJ[k]).forEach((sk) => html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">${SUBJ_NAME[sk]} 단원별 진도</h3>${SUBJ[sk].units.map((u) => {
       const c = hConceptStats(u), t = u.terms.filter((x) => S.known[htid(u, x)]).length, q = hQuizStats(u);
-      return `<div class="lrow"><b>${esc(u.code)}</b><span>개념 빈칸 ${c.n ? `${c.ok}/${c.n}칸` : '—'}</span><span>용어 ${t}/${u.terms.length}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
+      return `<div class="lrow"><b>${esc(u.code)}</b><span>개념 빈칸 ${c.n ? `${c.ok}/${c.n}칸` : '없음'}</span><span>용어 ${t}/${u.terms.length}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
     }).join('')}</div>`);
     html += `<div class="card" style="padding:16px 18px;margin-bottom:16px"><h3 class="card-title">영어 과별 진도</h3>${LESSONS.map((l) => {
       const q = quizStats(l), ws = wordsOf(l), kn = ws.filter((w) => S.known[wid(l, w)]).length;
       const wsd = Object.entries(S.ws || {}).filter(([k]) => k.startsWith(l.no + ':'));
       const wok = wsd.reduce((a, [, v]) => a + v.ok, 0), wn = wsd.reduce((a, [, v]) => a + v.total, 0);
-      return `<div class="lrow"><b>${l.no}과</b><span>단어 ${kn}/${ws.length}</span><span>학습지 ${wn ? `${wok}/${wn}칸` : '—'}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
+      return `<div class="lrow"><b>${l.no}과</b><span>단어 ${kn}/${ws.length}</span><span>학습지 ${wn ? `${wok}/${wn}칸` : '없음'}</span><span>실전 ${q.ok}/${q.total}</span><span class="bar"><span style="width:${pct(q.ok, q.total)}%"></span></span></div>`;
     }).join('')}</div>`;
     const keys = Object.keys(days).sort().reverse();
     if (!keys.length) html += `<div class="empty">아직 기록이 없어요. 아무 문제나 하나 풀면 여기에 바로 남아요 👻</div>`;
