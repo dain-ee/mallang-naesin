@@ -342,7 +342,7 @@
       const same = q.passage && q.passage === prev && !(done && UI.mockWrong); prev = q.passage;
       return `<div class="card q-card mock-q" id="mq${i}"><div class="q-head"><span class="q-no">${i + 1}번</span><span class="cat">${esc(q.cat)}</span><span class="badge">${q.lesson}과</span>${ans ? `<span class="badge ${p === q.answer ? 'ok' : 'bad'}">${p === q.answer ? '맞음' : '틀림'}</span>` : ''}</div>
         <p class="q-text">${rich(q.q)}</p>${q.passage ? same ? '<div class="passage same">↑ 위와 같은 글</div>' : `<div class="passage">${rich(q.passage)}</div>` : ''}
-        <div class="choices">${q.choices.map((c, k) => { const cls = ans ? (k === q.answer ? 'right' : k === p ? 'wrong' : '') : ''; return `<button class="choice ${cls}" data-mq="${i}" data-k="${k}" type="button" ${ans ? 'disabled' : ''}><span class="n">${'①②③④⑤'[k]}</span>${rich(c)}</button>`; }).join('')}</div>
+        <div class="choices">${q.choices.map((c, k) => { const cls = ans ? (k === q.answer ? 'right' : k === p ? 'wrong' : '') : ''; return `<button class="choice ${cls}" data-mq="${i}" data-k="${k}" type="button" ${ans ? 'disabled' : ''}><span class="n">${'①②③④⑤'[k]}</span><span>${rich(c)}</span></button>`; }).join('')}</div>
         ${ans ? `<div class="verdict ${p === q.answer ? 'ok' : 'no'}">${p === q.answer ? '정답!' : `틀렸어요 — 정답은 ${'①②③④⑤'[q.answer]}`}</div>${q.exp ? `<div class="exp"><b>해설</b>  ${rich(q.exp)}</div>` : ''}${!done && i + 1 < n ? `<div class="actions" style="justify-content:flex-start"><button class="btn sm2" data-mnext="${i + 1}" type="button">다음 문제 ↓</button></div>` : ''}` : ''}</div>`; }).join('');
     const foot = done ? `<div class="actions mock-foot"><button class="btn" id="mk-wrong" type="button">${UI.mockWrong ? '전체 보기' : `틀린 것만 보기 (${n - sc})`}</button><button class="btn ghost" id="mk-again" type="button">처음부터 다시 풀기</button></div>`
       : `<div class="actions mock-foot"><span class="hint">${got}/${n} 풂 · ${sc}개 맞힘 — 25문제를 다 풀면 점수가 나와요</span></div>`;
@@ -472,7 +472,7 @@
         else if (b.type === 'table') html += `<div class="htable-wrap"><table class="htable"><tr>${b.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr>${b.rows.map((row) => `<tr>${row.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table></div>`;
         else if (b.type === 'vocab') html += `<div class="sc-vtools">${seg('scVoc', [['show', '뜻 보기'], ['hide', '뜻 가리기']], UI.scVoc || 'show')}${L.ws && L.ws.vocab.enDef && L.ws.vocab.enDef.length ? `<button class="btn ok sm2" data-gomatch type="button">영영풀이로 맞추기 →</button>` : ''}</div><table class="wtable sc-vocab ${UI.scVoc === 'hide' ? 'hidek' : ''}">${b.rows.map(([en, ko, ex, g]) => `<tr><td class="w">${esc(en)}</td><td><button class="sc-ko" type="button"><span>${esc(ko)}</span></button></td>${ex || g ? `<td>${ex ? `<div>${esc(ex)}</div>` : ''}${g ? `<div class="e">✎ ${esc(g)}</div>` : ''}</td>` : '<td></td>'}</tr>`).join('')}</table>`;
         else if (b.type === 'notes') html += `<div class="card sc-notes">${b.items.map(([en, n]) => `<div class="sc-note"><div class="en">${esc(en)}</div>${n ? `<div class="sc-star">★ ${esc(n)}</div>` : ''}</div>`).join('')}</div>`;
-        else if (b.type === 'passage') html += `<div class="passage sc-pass">${esc(b.text).replace(/\n/g, '<br>')}</div>`;
+        else if (b.type === 'passage') html += `<div class="passage sc-pass">${rich(b.text).replace(/\n/g, '<br>')}</div>`;
         else if (b.type === 'blank') {
           const parts = b.s.split(/(\{\{[^}]+\}\})/); let j = 0;
           const body = parts.map((t) => { const m = t.match(/^\{\{(.+)\}\}$/); if (!m) return esc(t); const ans = m[1], i = j++, v = r && r.v ? r.v[i] || '' : '', good = r && accepts(v, ans);
@@ -481,12 +481,12 @@
           html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="cloze sc-cl">${body}</div>${b.ko ? `<div class="ko">${esc(b.ko)}</div>` : ''}${scGloss(b.g)}${wrongAns}</div></div>`;
         } else if (b.type === 'write') {
           const v = r ? r.v : '';
-          html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="q-text sc-q">${esc(b.q).replace(/\n/g, '<br>')}</div><div class="write"><textarea rows="2" data-scw="${k}" spellcheck="false" placeholder="답을 쓰고 Enter">${esc(v || '')}</textarea></div><div class="diff-line" ${r ? '' : 'hidden'}>${r ? scWriteFb(b, v) : ''}</div>${scGloss(b.g)}</div></div>`;
+          html += `<div class="item sc-item ${r && r.ok ? 'done' : ''}" data-sc="${k}"><div class="body"><div class="q-text sc-q">${rich(b.q).replace(/\n/g, '<br>')}</div><div class="write"><textarea rows="2" data-scw="${k}" spellcheck="false" placeholder="답을 쓰고 Enter">${esc(v || '')}</textarea></div><div class="diff-line" ${r ? '' : 'hidden'}>${r ? scWriteFb(b, v) : ''}</div>${scGloss(b.g)}</div></div>`;
         } else if (b.type === 'mc') {
           const picked = r ? r.v : null, multi = b.answer.length > 1, sel = UI.scSel[k] || [];
-          html += `<div class="card q-card sc-mc" data-sc="${k}" style="padding:16px 18px"><p class="q-text">${esc(b.q)}</p>${b.passage ? `<div class="passage">${esc(b.passage).replace(/\n/g, '<br>')}</div>` : ''}<div class="choices">${b.choices.map((c, ci) => {
+          html += `<div class="card q-card sc-mc" data-sc="${k}" style="padding:16px 18px"><p class="q-text">${rich(b.q)}</p>${b.passage ? `<div class="passage">${rich(b.passage).replace(/\n/g, '<br>')}</div>` : ''}<div class="choices">${b.choices.map((c, ci) => {
             let cls = ''; if (picked) { if (b.answer.includes(ci)) cls = 'right'; else if (picked.includes(ci)) cls = 'wrong'; } else if (sel.includes(ci)) cls = 'sel';
-            return `<button class="choice ${cls}" data-scm="${k}" data-ci="${ci}" type="button" ${picked ? 'disabled' : ''}><span class="n">${b.choices.length === 2 ? '' : '①②③④⑤'[ci]}</span>${esc(c)}</button>`; }).join('')}</div>${multi && !picked ? `<div class="hint">답이 여러 개예요 — 모두 고른 뒤 <button class="btn ok" data-scok="${k}" type="button">채점</button></div>` : ''}${picked ? `<div class="hint">${b.exp ? `<div class="exp">${esc(b.exp)}</div>` : ''}<button class="link" data-scredo="${k}" type="button">다시 풀기</button></div>` : ''}${scGloss(b.g)}</div>`;
+            return `<button class="choice ${cls}" data-scm="${k}" data-ci="${ci}" type="button" ${picked ? 'disabled' : ''}><span class="n">${b.choices.length === 2 ? '' : '①②③④⑤'[ci]}</span><span>${rich(c)}</span></button>`; }).join('')}</div>${multi && !picked ? `<div class="hint">답이 여러 개예요 — 모두 고른 뒤 <button class="btn ok" data-scok="${k}" type="button">채점</button></div>` : ''}${picked ? `<div class="hint">${b.exp ? `<div class="exp">${esc(b.exp)}</div>` : ''}<button class="link" data-scredo="${k}" type="button">다시 풀기</button></div>` : ''}${scGloss(b.g)}</div>`;
         }
       });
       return html;
@@ -996,7 +996,7 @@
         const k = `${L.no}:gd:${gi}.${di}`, picked = UI.revealed[k];
         return `<div class="card q-card" style="padding:16px 18px"><p class="q-text">${di + 1}. ${rich(d.q)}</p><div class="choices">${d.choices.map((c, ci) => {
           let cls = ''; if (picked != null) { if (ci === d.answer) cls = 'right'; else if (ci === picked - 1) cls = 'wrong'; }
-          return `<button class="choice ${cls}" data-gd="${k}" data-ci="${ci}" type="button" ${picked != null ? 'disabled' : ''}><span class="n">${'①②③④⑤'[ci]}</span>${rich(c)}</button>`;
+          return `<button class="choice ${cls}" data-gd="${k}" data-ci="${ci}" type="button" ${picked != null ? 'disabled' : ''}><span class="n">${'①②③④⑤'[ci]}</span><span>${rich(c)}</span></button>`;
         }).join('')}</div>${picked != null && d.exp ? `<div class="exp">${rich(d.exp)}</div>` : ''}</div>`;
       }).join('')}</div>`).join('');
     main.querySelectorAll('[data-gd]').forEach((b) => (b.onclick = () => {
@@ -1445,7 +1445,7 @@
     } else {
       body += `<div class="choices">${q.choices.map((c, k) => {
         let cls = ''; if (r) { if (k === q.answer) cls = 'right'; else if (k === r.pick) cls = 'wrong'; }
-        return `<button class="choice ${cls}" data-k="${k}" type="button" ${r ? 'disabled' : ''}><span class="n">${'①②③④⑤'[k]}</span>${rich(c)}</button>`;
+        return `<button class="choice ${cls}" data-k="${k}" type="button" ${r ? 'disabled' : ''}><span class="n">${'①②③④⑤'[k]}</span><span>${rich(c)}</span></button>`;
       }).join('')}</div>`;
     }
     if (r && q.exp) body += `<div class="exp"><b>해설</b>  ${rich(q.exp)}</div>`;

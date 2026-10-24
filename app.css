@@ -1184,6 +1184,7 @@ kbd { font: inherit; font-size: 11px; opacity: 0.75; border: 1px solid currentCo
   background: var(--line-soft); border: 1px solid var(--line); border-radius: 12px;
 }
 .passage u { text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.sc-mc .choice u, .sc-q u { text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 .exp { margin-top: 14px; padding: 14px 16px; font-size: 14px; line-height: 1.75; background: var(--card); border: 1px solid var(--line); border-radius: 12px; white-space: pre-line; }
 .exp b { color: var(--accent); }
 .short input { font-size: 15.5px; }
