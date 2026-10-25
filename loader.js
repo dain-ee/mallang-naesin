@@ -119,5 +119,6 @@ function bootStep(t) { try { window.__boot.push(((performance.now() / 1000) | 0)
   }
   data.sync = C;
   window.NAESIN = data;
-  const s = document.createElement('script'); s.src = (data.kind === 'jua' ? 'jua.js' : data.kind === 'jiwon' ? 'jiwon.js' : 'app.js') + '?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onerror = () => bootStep('앱 코드 못 받음'); s.onload = () => { bootStep('앱 코드 받음'); const m = document.getElementById('boot-msg'); if (m) m.remove(); }; document.body.appendChild(s);
+  const s = document.createElement('script'); s.src = (data.kind === 'jua' ? 'jua.js' : data.kind === 'jiwon' ? 'jiwon.js' : 'app.js') + '?v=' + (data.version || '') + '-' + Date.now(); /* 늘 최신 앱 코드 */ s.onerror = () => bootStep('앱 코드 못 받음'); s.onload = () => { bootStep('앱 코드 받음'); const m = document.getElementById('boot-msg'); if (m) m.remove();
+    const ch = document.createElement('script'); ch.src = 'chat.js?v=' + (data.version || '') + '-' + Date.now(); document.body.appendChild(ch); /* 「선생님께 말하기」 대화창 */ }; document.body.appendChild(s);
 })();
