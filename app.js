@@ -315,7 +315,7 @@
     const name = b.closest('.seg').dataset.seg; UI[name] = b.dataset.v;
     if (name === 'words') { UI.test = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'quizCat' || name === 'quizScope' || name === 'examSet') UI.quiz = null;
-    if (name === 'hquizCat' || name === 'hquizScope' || name === 'hexamSet') UI.hquiz = null;
+    if (name === 'hquizCat' || name === 'hquizScope' || name === 'hexamSet' || name === 'hlv') UI.hquiz = null;
     if (name === 'ht') { UI.htest = null; UI.card = 0; UI.cardFlip = false; }
     if (name === 'rpart') UI.rpart = +UI.rpart;
     render();
@@ -1536,7 +1536,7 @@
   function questionCard({ q, no, src, lab, hist }, r, num) {
     const kind = q.type === 'short' ? (hist ? '단답형' : '서술형') : q.type === 'essay' ? '서술형' : q.cat;
     const showNo = hist ? UI.hquizScope !== 'one' || S.tab === 'wrong' : UI.quizScope !== 'one' || S.tab === 'wrong';
-    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${src ? (q.lv ? ['', '필수', '실력', '고난도'][q.lv] : '기출 시험지') : '직접 만든 문제'}</span><span class="q-no">${num}번</span></div>
+    let body = `<div class="q-head"><span class="cat">${esc(kind)}</span>${showNo ? `<span class="badge">${hist ? esc(lab) : `${no}과`}</span>` : ''}<span class="badge ${src ? 'ok' : ''}">${hist ? (src ? '기출' : '직접 만든 문제') : src ? (q.lv ? ['', '필수', '실력', '고난도'][q.lv] : '기출 시험지') : '직접 만든 문제'}</span>${hist ? `<span class="badge lv${hLv(q)}">${['', '쉬움', '보통', '어려움'][hLv(q)]}</span>` : ''}<span class="q-no">${num}번</span></div>
       <p class="q-text">${rich(q.q)}</p>${q.passage ? `<div class="passage">${rich(q.passage)}</div>` : ''}`;
     if (q.type === 'essay') {
       body += `<div class="short essay"><textarea id="sh-in" rows="3" spellcheck="false" placeholder="문장으로 써 보세요" ${r ? 'disabled' : ''}>${esc(r ? r.typed : '')}</textarea><div class="actions" style="justify-content:flex-start"><button class="btn primary" id="sh-go" type="button" ${r ? 'hidden' : ''}>채점</button><button class="btn ghost" id="sh-give" type="button" ${r ? 'hidden' : ''}>모르겠어요</button></div></div>`;
@@ -1799,25 +1799,37 @@
   const HCATS = ['전체', '개념', '자료', '서술형'];
   // 과학·역사 기출도 출처 대신 난이도로 — 지금 고른 단원 문제만 (q.unit), 숙제 시험지는 예외
   const hxAll = (U) => HEXAMS.flatMap((e) => e.questions.map((q, i) => (!hideQ(q) && q.unit === U.no ? qByKey(`hx:${e.id}:${i}`) : null))).filter(Boolean);
-  const hxLv = (U, set) => hxAll(U).filter(({ q }) => set === 'all' || (LV[set] && q.lv === LV[set][0]));
-  function hPool(U) {
-    if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
+  // 난이도 (윤건 2026-10-25 «섞여있는것도 난이도 별로») — q.lv 1 쉬움 · 2 보통 · 3 어려움. 기출은 exam_levels.json, 단원 문제는 H*.json 의 lv (scripts/hist_easy.py)
+  // lv 가 없으면 규칙: 단답형 쉬움 · 개념 객관식 보통 · 자료·<보기>·서술형 어려움
+  const HLV = [['all', '전체'], ['1', '쉬움'], ['2', '보통'], ['3', '어려움']];
+  const hLv = (q) => q.lv || (q.type === 'essay' ? 3 : q.type === 'short' ? 1 : q.cat === '자료' || /<보기>|ㄱ\.|ㄱ,/.test((q.q || '') + (q.passage || '')) ? 3 : 2);
+  function hPoolBase(U) { // 범위·갈래까지 (난이도 고르기 전)
     const sc = UI.hquizScope || 'one';
     const one = (u) => u.questions.map((q, i) => (q.off ? null : qByKey(`h:${u.no}:${i}`)));
-    const src = sc === 'exam' ? (HEXAMS.some((e) => e.id === UI.hexamSet) ? HEXAMS.filter((e) => e.id === UI.hexamSet).flatMap((e) => e.questions.map((q, i) => qByKey(`hx:${e.id}:${i}`))) // 숙제로 정해 준 시험지는 그대로
-      : hxLv(U, UI.hexamSet || 'all').sort((a, b) => a.q.lv - b.q.lv)) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
+    const src = sc === 'exam' ? (hwExam() ? hwExam().questions.map((q, i) => (hideQ(q) ? null : qByKey(`hx:${hwExam().id}:${i}`))) // 숙제로 정해 준 시험지는 그대로
+      : hxAll(U).sort((a, b) => hLv(a.q) - hLv(b.q))) : sc === 'all' ? HUNITS.flatMap(one) : one(U);
     const cat = UI.hquizCat || '전체';
     return src.filter(Boolean).filter(({ q }) => cat === '전체' || (cat === '서술형' ? q.type === 'short' || q.type === 'essay' : q.cat === cat && q.type === 'mc'));
   }
+  const hwExam = () => (UI.hquizScope === 'exam' && HEXAMS.find((e) => e.id === UI.hexamSet)) || null;
+  const hLvOn = () => !UI.quizOnly && !hwExam(); // 숙제 문제·숙제 시험지는 난이도로 나누지 않음
+  function hPool(U) {
+    if (UI.quizOnly) return UI.quizOnly.map(qByKey).filter(Boolean);
+    const lv = hLvOn() ? UI.hlv || 'all' : 'all';
+    return hPoolBase(U).filter(({ q }) => lv === 'all' || hLv(q) === +lv);
+  }
   function hquiz(U) {
     UI.hquizScope = UI.hquizScope || (HEXAMS.length ? 'exam' : 'one');
-    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = seedQuiz(UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && (UI.hexamSet || 'all') === 'all') ? shuffle(pool, `h:${U.no}:${UI.hquizScope}:${UI.hquizCat || ''}`) : pool); }
+    if (LV[UI.hexamSet]) { UI.hlv = String(LV[UI.hexamSet][0]); UI.hexamSet = 'all'; UI.hquiz = null; } // 예전 기출 난이도 고르기(lv1~3)는 새 난이도 칸으로
+    if (!UI.hquiz) { const pool = hPool(U); UI.hquiz = seedQuiz(UI.hquizScope === 'all' || (UI.hquizScope === 'exam' && !hwExam()) ? shuffle(pool, `h:${U.no}:${UI.hquizScope}:${UI.hquizCat || ''}:${UI.hlv || 'all'}`) : pool); }
     const Q = UI.hquiz, st = hQuizStats(U);
     const scopes = [...(HEXAMS.length ? [['exam', `기출 · ${esc(U.code)} (${hxAll(U).length})`]] : []), ['one', `이 단원 (${U.questions.filter((q) => !q.off).length})`], ['all', `${HUNITS.map((u) => u.code).join('·')} 섞기`]];
-    const ex = HEXAMS.find((e) => e.id === UI.hexamSet);
-    let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `📌 숙제로 정해 준 시험지 · ${ex.questions.filter((q) => !hideQ(q)).length}문제` : LV[UI.hexamSet] ? `${LV[UI.hexamSet][1]} · ${esc(U.code)} · ${hxLv(U, UI.hexamSet).length}문제` : `${esc(U.code)} 기출 ${hxAll(U).length}문제를 섞어서`) : `직접 만든 문제 · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
+    const ex = HEXAMS.find((e) => e.id === UI.hexamSet), base = hLvOn() ? hPoolBase(U) : [], lvN = (v) => base.filter(({ q }) => v === 'all' || hLv(q) === +v).length;
+    const lvName = { all: '', 1: '쉬움', 2: '보통', 3: '어려움' }[UI.hlv || 'all'];
+    let html = head(`실전 문제 · ${UI.hquizScope === 'exam' ? '기출 시험지' : UI.hquizScope === 'one' ? esc(U.code) : '섞어서'}`, UI.hquizScope === 'exam' ? (ex ? `📌 숙제로 정해 준 시험지 · ${ex.questions.filter((q) => !hideQ(q)).length}문제` : `${esc(U.code)} 기출${lvName ? ` · ${lvName}` : ''} ${Q.pool.length}문제를 섞어서`) : `직접 만든 문제${lvName ? ` · ${lvName} ${Q.pool.length}문제` : ''} · 이 단원 ${st.ok}/${st.total} 맞힘 · 서술형은 핵심어가 다 들어가면 정답`, `<button class="btn" id="q-reset" type="button">처음부터 다시</button>`) +
       `<div class="bar-row">${seg('hquizScope', scopes, UI.hquizScope)}${seg('hquizCat', HCATS.map((c) => [c, c]), UI.hquizCat || '전체')}</div>` +
-      (UI.hquizScope === 'exam' && HEXAMS.length ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], ...Object.entries(LV).map(([k, [, t]]) => [k, `${t} ${hxLv(U, k).length}`]), ...(ex ? [[ex.id, '📌 숙제 시험지']] : [])], UI.hexamSet || 'all')}</div>` : '');
+      (UI.hquizScope === 'exam' && ex ? `<div class="bar-row">${seg('hexamSet', [['all', '전체 섞기'], [ex.id, '📌 숙제 시험지']], UI.hexamSet)}</div>` : '') +
+      (hLvOn() ? `<div class="bar-row">${seg('hlv', HLV.map(([v, t]) => [v, `${t} ${lvN(v)}`]), UI.hlv || 'all')}</div>` : '');
     if (UI.quizOnly) html += `<div class="hw-banner">📌 숙제 문제만 보는 중 (${Q.pool.length}문제) <button class="link" id="q-all" type="button">모든 문제 보기</button></div>`;
     if (!Q.pool.length) { main.innerHTML = html + `<div class="empty">이 갈래의 문제가 없어요.</div>`; hBindTop(); return; }
     html += `<div class="qdots">${Q.pool.map((p, i) => { const r = Q.picks[p.key]; return `<button class="qdot ${i === Q.i ? 'on' : ''} ${r ? (r.ok ? 'right' : 'wrong') : solvedBefore(p.key) ? 'solved' : ''}" data-qi="${i}" type="button" ${!r && solvedBefore(p.key) ? 'title="전에 푼 문제"' : ''}>${i + 1}</button>`; }).join('')}</div>`;
@@ -1893,7 +1905,7 @@
     if (c.type === 'nq') { const ks = NOTES ? nqKeys(c.kind) : [], dn = ks.filter((k) => ((S.nq || {})[k] || {}).at >= since(c)), ok = dn.filter((k) => S.nq[k].ok).length; return { ok: ks.length > 0 && dn.length >= ks.length, txt: `${dn.length}/${ks.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit); if (!U) return { ok: false, txt: '' }; let n = 0, ok = 0; U.sections.forEach((sec, si) => { if (sec.off || (c.secs && !c.secs.includes(si))) return; const id = `h${U.no}:c:${si}`; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[id]; if (r && ((S.wsAt || {})[id] || 0) >= since(c)) ok += r.ok; }); return { ok: n > 0 && ok >= n, txt: `${ok}/${n}칸 맞힘${c.since ? ' (다시)' : ''}` }; }
     if (c.type === 'hterms') { const U = ALLU.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
-    if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), ks = U ? U.questions.map((q, i) => (q.off ? null : `h:${U.no}:${i}`)).filter(Boolean) : [], dn = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), st = { done: dn.length, ok: dn.filter((k) => S.qa[k].ok).length }, all = ks.length; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
+    if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), ks = U ? U.questions.map((q, i) => (q.off || q.gen ? null : `h:${U.no}:${i}`)).filter(Boolean) : [], dn = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), st = { done: dn.length, ok: dn.filter((k) => S.qa[k].ok).length }, all = ks.length; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
     if (c.type === 'hexam') { const e = ALLX.find((x) => x.id === c.id), ks = e ? e.questions.map((q, i) => (q.off ? null : `hx:${e.id}:${i}`)).filter(Boolean) : [], done = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), ok = done.filter((k) => S.qa[k].ok).length; return { ok: ks.length > 0 && done.length >= ks.length, txt: `${done.length}/${ks.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'wrongClear') { const n = Object.keys(S.wrong).filter((k) => !c.since || ((S.qa[k] || {}).at || 0) >= since(c)).length; // 그날 틀린 것만 (예전 오답이 남아 있어도 오늘 숙제는 끝낼 수 있게)
       return { ok: n === 0, txt: n ? `오답 ${n}개 남음` : '오답 0개' }; }

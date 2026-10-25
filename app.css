@@ -2153,6 +2153,10 @@ button.rd-op:hover { border-color: var(--accent-2, var(--accent)); }
 .fo-opts { display: grid; gap: 8px; width: 100%; max-width: 640px; } .fo-opts .btn { justify-content: flex-start; text-align: left; white-space: normal; height: auto; padding: 10px 14px; line-height: 1.45; }
 @media (prefers-color-scheme: dark) {:root:not([data-theme="light"]) .fo-row { background: var(--card); border-color: var(--line); color: var(--ink); } }
 .fo-card b.fo-p { border: 0; padding: 0; }
+/* 역사 문제 난이도 배지 (2026-10-25) — 기존 badge 색 토큰 재사용 */
+.badge.lv1 { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.badge.lv2 { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.badge.lv3 { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
 
 /* 보는 사람이 직접 고른 어두운 테마 */
 :root[data-theme="dark"] {
