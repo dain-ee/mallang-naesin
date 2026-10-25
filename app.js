@@ -291,11 +291,11 @@
     } else {
       if (S.tab.startsWith('h') && S.tab !== 'hw') S.tab = 'home';
       if (S.tab === 'mock' && !(MOCK && UI.mock)) S.tab = 'home';
-      if (S.tab === 'notes' && !NOTES) S.tab = 'home';
+      if ((S.tab === 'notes' || S.tab === 'nq') && !NOTES) S.tab = 'home';
       if (S.tab === 'perf' && !PERF) S.tab = 'home'; // 수행평가 끝(2026-10-17) — 원고는 content/perf.done.json 에 보관
       const L = lesson();
       if (!L) { main.innerHTML = `<div class="empty">자료가 아직 없습니다.</div>`; return; }
-      ({ hw: hwView, perf, mock: mockView, notes: notesView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
+      ({ hw: hwView, perf, mock: mockView, notes: notesView, nq: nqView, home, school, words, comm, grammar, reading, quiz, wrong, log: logView })[S.tab]?.(L);
     }
     hwBar();
     { const b = main.querySelector('.hwbar-tabs'); if (b) slideInk(b, 'hwbar', 1); main.querySelectorAll('.seg').forEach((s, i) => slideInk(s, `${S.tab}:${s.dataset.seg || i}`)); }
@@ -461,7 +461,7 @@
   function bindGtable() {
     const again = () => { const y = scrollY; render(); scrollTo(0, y); };
     main.querySelectorAll('[data-gtq]').forEach((b) => (b.onclick = () => { UI.gtq = b.dataset.gtq === 'off' ? null : gtQuiz(); again(); }));
-    main.querySelectorAll('[data-gtk]').forEach((b) => (b.onclick = () => { const q = UI.gtq, cur = q.pool[q.i], ok = b.dataset.gtk === cur.k; if (ok) q.ok++; q.last = { ...cur, ok }; q.i++; again(); }));
+    main.querySelectorAll('[data-gtk]').forEach((b) => (b.onclick = () => { const q = UI.gtq, cur = q.pool[q.i], ok = b.dataset.gtk === cur.k; if (ok) q.ok++; q.last = { ...cur, ok }; q.i++; nqSave('gt:' + cur.en, ok); again(); }));
     main.querySelectorAll('[data-notes]').forEach((b) => (b.onclick = () => { UI.notesL = +b.dataset.notes || UI.notesL || 6; go('notes'); window.scrollTo(0, 0); }));
   }
   // 5형식 기초 (선생님 2026-10-24: «5형식을 몰라서 지각동사·want you to 가 다 흔들림») — 예문은 5·6과 프린트 것. 퀴즈는 UI 만
@@ -507,13 +507,25 @@
       <div class="actions"><button class="btn ok" data-foq="on" type="button">바꾸기 퀴즈 (${F.quiz.length}문제)</button></div>`;
     return `<section class="card gt-card fv-card fo-card"><div class="gt-eyebrow">🔁 선생님 필기 · 3형식 ↔ 4형식</div><h2 class="gt-h">${esc(F.title)}</h2><p class="gt-why">${esc(F.why)}</p>${body}</section>`;
   }
+  function foQuiz() {
+    const shuf = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    return { pool: shuf(NOTES.four.quiz).map(([dir, s, opts, why]) => { const o = shuf(opts); return { dir, s, opts: o, a: o.indexOf(opts[0]), why }; }), i: 0, ok: 0, pick: null };
+  }
   function bindFour() {
     const again = () => { const y = scrollY; render(); scrollTo(0, y); };
-    const shuf = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-    const mk = () => ({ pool: shuf(NOTES.four.quiz).map(([dir, s, opts, why]) => { const o = shuf(opts); return { dir, s, opts: o, a: o.indexOf(opts[0]), why }; }), i: 0, ok: 0, pick: null });
+    const mk = foQuiz;
     main.querySelectorAll('[data-foq]').forEach((b) => (b.onclick = () => { UI.foq = b.dataset.foq === 'off' ? null : mk(); again(); }));
-    main.querySelectorAll('[data-fok]').forEach((b) => (b.onclick = () => { const q = UI.foq; q.pick = +b.dataset.fok; if (q.pick === q.pool[q.i].a) q.ok++; again(); }));
+    main.querySelectorAll('[data-fok]').forEach((b) => (b.onclick = () => { const q = UI.foq; q.pick = +b.dataset.fok; if (q.pick === q.pool[q.i].a) q.ok++; nqSave('fo:' + q.pool[q.i].s, q.pick === q.pool[q.i].a); again(); }));
     main.querySelectorAll('[data-fon]').forEach((b) => (b.onclick = () => { const q = UI.foq; q.i++; q.pick = null; again(); }));
+  }
+  // 표 퀴즈·바꾸기 퀴즈 기록 — 숙제(check 'nq')가 그날 몇 문제 풀었는지 셈. 화면은 여전히 다시 하면 새로 섞음
+  function nqSave(k, ok) { S.nq = S.nq || {}; S.nq[k] = { ok, at: Date.now() }; save(); }
+  const nqKeys = (kind) => (kind === 'gt' ? NOTES.table.groups.filter((g) => GT_K[g.k]).flatMap((g) => g.verbs.map(([en]) => 'gt:' + en)) : NOTES.four.quiz.map((x) => 'fo:' + x[1]));
+  // 숙제로 들어오면 그 퀴즈 카드만 (hwGo 가 문제를 새로 섞어 바로 시작)
+  function nqView() {
+    const gt = UI.nqK !== 'fo';
+    main.innerHTML = head(gt ? '동명사 · to부정사 퀴즈' : '3형식 ↔ 4형식 바꾸기', gt ? '동사를 보고 목적어로 뭐가 오는지 골라요' : '바꾼 문장으로 맞는 것을 골라요') + (gt ? gtableCard() : fourCard());
+    bindGtable(); bindFour();
   }
   function notesBanner() {
     if (!NOTES || isHist()) return '';
@@ -947,7 +959,7 @@
       if (mode === 'read') inner = `<div class="en">${star}${esc(x.en)}</div><div class="ko">${esc(x.ko)}</div>${x.note ? `<div class="note">💡 ${esc(x.note)}</div>` : ''}`;
       else if (mode === 'hideEn') inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="en ${rv ? '' : 'veil-line'}" data-rv="${x.id}">${esc(x.en)}</div>`;
       else if (mode === 'hideKo') inner = `<div class="en">${star}${esc(x.en)}</div><div class="ko ${rv ? '' : 'veil-line'}" data-rv="${x.id}">${esc(x.ko)}</div>`;
-      else if (['cloze', 'kcloze', 'order', 'write'].includes(mode) && (S.dm || {})[`${mode}:${x.id}`] && !UI.redo[x.id]) {
+      else if (['cloze', 'kcloze', 'order', 'write'].includes(mode) && ((S.dm || {})[`${mode}:${x.id}`] || 0) > (UI.qSince || 0) && !UI.redo[x.id]) {
         // 이미 맞힌 문장 — 다시 들어와도 완성된 상태로 보여 줍니다 (초기화된 것처럼 보이지 않게)
         inner = `<div class="ko">${star}${esc(x.ko)}</div><div class="en">${esc(x.en)}</div><div class="verdict ok">✓ ${({ cloze: '빈칸', kcloze: '중요 빈칸', order: '배열 영작', write: '통영작' })[mode]} 완료 <button class="link" data-redo="${x.id}" type="button">다시 해 보기</button></div>`;
       }
@@ -1024,7 +1036,7 @@
     });
     function markMem(id) {
       const itEl = main.querySelector(`.item[data-id="${CSS.escape(id)}"]`); if (itEl) react(true, itEl);
-      S.dm = S.dm || {}; if (!S.dm[`${UI.drill}:${id}`]) { S.dm[`${UI.drill}:${id}`] = Date.now(); save(); } // 배열·빈칸·통영작 중 무엇으로 맞혔는지
+      S.dm = S.dm || {}; S.dm[`${UI.drill}:${id}`] = Date.now(); save(); // 배열·빈칸·통영작 중 무엇으로 맞혔는지 (마지막으로 맞힌 시각 — 2회차 숙제용)
       if (S.mem[id]) return; S.mem[id] = 1; logEv('암기', 1, 1, (byId[id] || {}).en); save();
       const it = main.querySelector(`.item[data-id="${CSS.escape(id)}"]`); if (it) { it.classList.add('done'); const b = it.querySelector('.mk'); b.classList.add('on'); b.textContent = '✓ 외웠어요'; }
       const badge = main.querySelector('.bar-row .badge.ok'); if (badge) badge.textContent = `${memCount(items)} / ${items.length} 외움`;
@@ -1838,7 +1850,8 @@
     if (c.type === 'mem') { const n = c.ids.filter((id) => S.mem[id]).length; return { ok: n >= c.min, txt: `${n}/${c.min}문장` }; }
     if (c.type === 'qa') { const done = c.keys.filter((k) => S.qa[k]), ok = done.filter((k) => S.qa[k].ok).length; return { ok: done.length >= c.min, txt: `${done.length}/${c.min}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'drill') {
-      const perfect = c.ids.filter((id) => (S.dm || {})[`${c.mode}:${id}`]).length;
+      const t0 = c.since ? new Date(c.since + 'T00:00:00').getTime() : 0; // 2회차: 그날 다시 맞힌 것만
+      const perfect = c.ids.filter((id) => ((S.dm || {})[`${c.mode}:${id}`] || 0) > t0).length;
       if (c.mode !== 'write') return { ok: perfect >= c.min, txt: `${perfect}/${c.min}문장` };
       const n = c.ids.filter((id) => (S.dm || {})[`write:${id}`] || (S.wr || {})[id]).length; // 통영작은 써서 채점하면 한 것으로
       return { ok: n >= c.min, txt: `${n}/${c.min}문장 · 완벽 ${perfect}개` };
@@ -1877,6 +1890,7 @@
     }
     // 역사 숙제 — 개념 빈칸 · 핵심 용어 · 실전 문제
     const since = (c) => (c.since ? new Date(c.since + 'T00:00:00').getTime() : 0); // 2·3회차: 그날 다시 풀어야 함
+    if (c.type === 'nq') { const ks = NOTES ? nqKeys(c.kind) : [], dn = ks.filter((k) => ((S.nq || {})[k] || {}).at >= since(c)), ok = dn.filter((k) => S.nq[k].ok).length; return { ok: ks.length > 0 && dn.length >= ks.length, txt: `${dn.length}/${ks.length}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'hconcept') { const U = ALLU.find((u) => u.no === c.unit); if (!U) return { ok: false, txt: '' }; let n = 0, ok = 0; U.sections.forEach((sec, si) => { if (sec.off || (c.secs && !c.secs.includes(si))) return; const id = `h${U.no}:c:${si}`; sec.blocks.forEach((b) => (b.pts || []).forEach((p) => (n += (p.match(/\{/g) || []).length))); const r = (S.ws || {})[id]; if (r && ((S.wsAt || {})[id] || 0) >= since(c)) ok += r.ok; }); return { ok: n > 0 && ok >= n, txt: `${ok}/${n}칸 맞힘${c.since ? ' (다시)' : ''}` }; }
     if (c.type === 'hterms') { const U = ALLU.find((u) => u.no === c.unit), n = U ? U.terms.filter((x) => S.known[htid(U, x)]).length : 0, all = U ? U.terms.length : 0; return { ok: all > 0 && n >= all, txt: `${n}/${all}개 외움` }; }
     if (c.type === 'hquiz') { const U = ALLU.find((u) => u.no === c.unit), ks = U ? U.questions.map((q, i) => (q.off ? null : `h:${U.no}:${i}`)).filter(Boolean) : [], dn = ks.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), st = { done: dn.length, ok: dn.filter((k) => S.qa[k].ok).length }, all = ks.length; return { ok: all > 0 && st.done >= all, txt: `${st.done}/${all}문제 풂 · ${st.ok}개 맞힘` }; }
@@ -1941,10 +1955,11 @@
     UI.quiz = null; UI.onlyKey = false; UI.onlyTodo = false;
     if (g.hquizScope) { UI.hquizScope = g.hquizScope; UI.hquiz = null; }
     if (g.hexamSet) UI.hexamSet = g.hexamSet;
+    if (g.nq) { UI.nqK = g.nq; UI.gtq = g.nq === 'gt' ? gtQuiz() : null; UI.foq = g.nq === 'fo' ? foQuiz() : null; } // 숙제로 들어오면 새로 섞어서 처음부터
     const hc = t.checks.find((c) => c.type === 'hconcept' && c.secs); UI.hsecs = hc ? { u: hc.unit, secs: hc.secs } : null; // 오늘 할 절만 보이게
     t.checks.forEach((c) => { if (c.type === 'hconcept' && c.since) { const U = ALLU.find((u) => u.no === c.unit), t0 = new Date(c.since + 'T00:00:00').getTime(); if (U && S.wsv) U.sections.forEach((_, si) => { if (c.secs && !c.secs.includes(si)) return; const id = `h${U.no}:c:${si}`; if (((S.wsAt || {})[id] || 0) < t0) delete S.wsv[id]; }); } }); // 다시 보는 날은 빈칸부터
     t.checks.forEach((c) => { if (c.type === 'ws' && c.since && ((S.wsAt || {})[c.id] || 0) < new Date(c.since + 'T00:00:00').getTime() && S.wsv) delete S.wsv[c.id]; }); // 복기는 빈칸부터
-    UI.qSince = Math.max(0, ...t.checks.filter((c) => c.since && /^(hquiz|hexam|qa|exam)$/.test(c.type)).map((c) => new Date(c.since + 'T00:00:00').getTime())); // 2·3회차: 그날 다시 풀게 지난 표시는 안 보임
+    UI.qSince = Math.max(0, ...t.checks.filter((c) => c.since && /^(hquiz|hexam|qa|exam|drill|nq)$/.test(c.type)).map((c) => new Date(c.since + 'T00:00:00').getTime())); // 2·3회차: 그날 다시 풀게 지난 표시는 안 보임
     UI.fromHw = 1; go(g.tab || 'home'); UI.fromHw = 0;
     if (g.quizOnly) { UI.quizOnly = g.quizOnly; UI.quiz = null; UI.hquiz = null; render(); }
   }
@@ -2181,6 +2196,7 @@
     const or = (a = {}, b = {}) => { const o = { ...a }; for (const k in b) if (b[k] && (!o[k] || (typeof b[k] === 'number' && b[k] > o[k]))) o[k] = b[k]; return o; };
     S.hwSets = { ...(S.hwSets || {}), ...(sd.hwSets || {}) };
     S.mock = S.mock || {}; for (const k in sd.mock || {}) if (!S.mock[k] || (sd.mock[k].at || 0) > (S.mock[k].at || 0)) S.mock[k] = sd.mock[k];
+    S.nq = S.nq || {}; for (const k in sd.nq || {}) if (!S.nq[k] || (sd.nq[k].at || 0) > (S.nq[k].at || 0)) S.nq[k] = sd.nq[k];
     S.mt = S.mt || {}; for (const k in sd.mt || {}) if (!S.mt[k] || (sd.mt[k].at || 0) > (S.mt[k].at || 0)) S.mt[k] = sd.mt[k];
     S.sch = S.sch || {}; for (const k in sd.sch || {}) if (!S.sch[k] || (sd.sch[k].at || 0) > (S.sch[k].at || 0)) S.sch[k] = sd.sch[k];
     S.wr = S.wr || {}; for (const k in sd.wr || {}) if (!S.wr[k] || (sd.wr[k].at || 0) > (S.wr[k].at || 0)) S.wr[k] = sd.wr[k];
