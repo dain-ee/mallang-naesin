@@ -1860,7 +1860,7 @@
       return { ok: !!sc && sc.total > 0 && sc.ok / sc.total >= c.min, txt: sc ? `${sc.ok}/${sc.total}` : '아직 채점 안 함' };
     }
     if (c.type === 'mem') { const n = c.ids.filter((id) => S.mem[id]).length; return { ok: n >= c.min, txt: `${n}/${c.min}문장` }; }
-    if (c.type === 'qa') { const done = c.keys.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= since(c)), ok = done.filter((k) => S.qa[k].ok).length; return { ok: done.length >= c.min, txt: `${done.length}/${c.min}문제 풂 · ${ok}개 맞힘` }; }
+    if (c.type === 'qa') { const done = c.keys.filter((k) => S.qa[k] && (S.qa[k].at || 0) >= (c.since ? new Date(c.since + 'T00:00:00').getTime() : 0)), ok = done.filter((k) => S.qa[k].ok).length; return { ok: done.length >= c.min, txt: `${done.length}/${c.min}문제 풂 · ${ok}개 맞힘` }; }
     if (c.type === 'drill') {
       const t0 = c.since ? new Date(c.since + 'T00:00:00').getTime() : 0; // 2회차: 그날 다시 맞힌 것만
       const perfect = c.ids.filter((id) => ((S.dm || {})[`${c.mode}:${id}`] || 0) > t0).length;
